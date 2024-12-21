@@ -1,0 +1,743 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.icon-size {
+  height: 24px;
+  width: 24px;
+}
+
+.ama-container {
+  @apply max-w-6xl mx-auto px-4 py-16 w-full;
+  padding-top: 5rem;
+}
+
+/* Header Styles */
+.ama-header {
+  @apply border-b border-gray-200 pb-8 mb-8 max-w-4xl mx-auto;
+}
+
+.guest-profile {
+  @apply flex flex-col items-center justify-center mb-8;
+}
+
+.profile-tag {
+  @apply text-sm font-medium text-gray-500 mb-2;
+}
+
+.guest-info {
+  @apply flex flex-col items-center;
+}
+
+.guest-avatar {
+  @apply rounded-full w-16 h-16;
+}
+
+.guest-name {
+  @apply text-2xl font-bold mt-2;
+}
+
+.guest-username {
+  @apply text-gray-600;
+}
+
+.initial-cast {
+  @apply bg-gray-50 rounded-lg p-6 mt-8 flex flex-col items-center;
+}
+
+.cast-header {
+  @apply flex flex-col items-center gap-2 mb-4 text-center;
+}
+
+.cast-avatar {
+  @apply rounded-full w-12 h-12 mb-2;
+}
+
+.cast-text {
+  @apply text-lg max-w-2xl mx-auto text-center;
+}
+
+.host-tag {
+  @apply text-sm font-medium text-gray-500;
+}
+
+/* QA Section Styles */
+.qa-grid {
+  @apply flex flex-col items-center gap-8 max-w-6xl mx-auto;
+}
+
+.qa-column {
+  @apply w-full;
+}
+
+.qa-title {
+  @apply text-lg font-medium text-center mb-6;
+}
+
+.qa-title-questions {
+  @apply text-gray-700;
+}
+
+.qa-title-answers {
+  @apply text-purple-700;
+}
+
+.message-bubble {
+  @apply rounded-2xl p-6 relative break-words;
+  max-width: 90%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 120px;
+}
+
+.message-bubble-left {
+  @apply bg-gray-100;
+  margin-right: auto;
+}
+
+.message-bubble-right {
+  @apply bg-purple-100;
+  margin-left: auto;
+}
+
+.message-header {
+  @apply flex items-center gap-3 mb-4;
+  flex-shrink: 0;
+}
+
+.message-header-right {
+  @apply flex-row-reverse;
+}
+
+.message-avatar {
+  @apply rounded-full flex-shrink-0;
+  width: 32px;
+  height: 32px;
+}
+
+.message-metadata {
+  @apply flex items-center gap-2 text-sm;
+}
+
+.message-metadata.justify-end {
+  @apply flex-row-reverse;
+}
+
+.question-text,
+.answer-text {
+  @apply text-gray-800 text-base whitespace-pre-wrap break-words;
+  flex-grow: 1;
+  padding: 0.5rem 0;
+  line-height: 1.75;
+}
+
+/* Drag and Drop Styles */
+.draggable-item {
+  @apply cursor-move;
+  touch-action: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.draggable-item.dragging {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qa-pair.dragging {
+  border-color: #6366f1;
+  background-color: #eef2ff;
+}
+
+.qa-pair-content.dragging {
+  border-color: #6366f1;
+}
+
+.droppable-area {
+  @apply min-h-[100px];
+}
+
+.drag-indicator {
+  @apply absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-gray-300 rounded opacity-0 transition-opacity duration-200;
+}
+
+.draggable-item:hover .drag-indicator {
+  @apply opacity-100;
+}
+
+.qa-column > .draggable-item {
+  flex: 1;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .qa-grid {
+    @apply flex flex-col gap-4;
+  }
+
+  .qa-column {
+    @apply w-full;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+  }
+}
+
+.numbered-band {
+  @apply flex justify-center items-center my-2;
+  width: 100%;
+}
+
+.numbered-band-text {
+  @apply text-gray-500 text-lg font-bold;
+}
+
+@media (max-width: 768px) {
+  .numbered-band {
+    @apply my-4;
+  }
+}
+
+.qa-pair {
+  @apply flex flex-col items-center mb-8;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #f9fafb;
+}
+
+.qa-pair-content {
+  @apply flex flex-col items-center;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .qa-pair {
+    @apply mb-4;
+  }
+}
+
+/* Matching Mode Styles */
+.matching-grid {
+  @apply grid w-full;
+  grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr);
+  gap: 0;
+}
+
+.matching-column {
+  @apply flex flex-col;
+  min-width: 0;
+}
+
+.matching-item-container {
+  @apply relative flex items-center w-full;
+  min-height: 120px;
+  padding: 1.25rem 0;
+  transition: all 0.3s ease;
+}
+
+/* Ensure paired items have the same height */
+.matching-pair {
+  display: contents;
+}
+
+.matching-pair .matching-item-container {
+  height: var(--pair-height);
+}
+
+/* Central Numbers Column */
+.central-numbers-column {
+  @apply flex flex-col items-center;
+  margin-top: 4rem;
+}
+
+.central-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--pair-height);
+  position: relative;
+}
+
+.central-number-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Message bubble adjustments for matching mode */
+.matching-item-container .message-bubble {
+  @apply w-full transition-all duration-300;
+  max-width: 95%;
+  height: 100%;
+  padding: 1.5rem;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.matching-item-container .message-bubble-left {
+  margin-right: 1rem;
+}
+
+.matching-item-container .message-bubble-right {
+  margin-left: 1rem;
+}
+
+/* Hover effects to highlight pairs */
+.matching-pair:hover .matching-item-container {
+  @apply bg-gray-50;
+}
+
+.matching-pair:hover .central-number-content {
+  transform: scale(1.1);
+}
+
+.matching-pair:hover .central-number::before {
+  opacity: 1;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    #9333ea 20%,
+    #9333ea 80%,
+    transparent 100%
+  );
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .matching-grid {
+    display: none;
+  }
+
+  .qa-pair {
+    @apply mx-2;
+  }
+}
+
+/* Pair Actions */
+.pair-actions {
+  @apply flex gap-2 ml-4;
+}
+
+.vote-button {
+  @apply p-1 rounded hover:bg-gray-200 transition-colors;
+}
+
+/* Quick Actions Styles */
+.quick-actions-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.quick-actions-content {
+  @apply bg-white rounded-lg p-4 w-full max-w-md mx-4;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.quick-actions-header {
+  @apply flex justify-between items-center mb-4 pb-2 border-b;
+}
+
+.quick-actions-grid {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+}
+
+.quick-action-button {
+  @apply bg-gray-100 hover:bg-gray-200 rounded-lg p-2 text-center transition-colors;
+}
+
+.quick-move-button {
+  @apply absolute p-1.5 rounded-full bg-white bg-opacity-80 
+    hover:bg-opacity-100 transition-all z-10 shadow-sm border border-gray-200;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.quick-move-button-right {
+  @apply right-2 top-2;
+}
+
+.quick-move-button-left {
+  @apply left-2 top-2;
+}
+
+.quick-move-pair-button {
+  @apply p-1.5 rounded-full bg-white hover:bg-gray-100 
+    transition-all shadow-sm border border-gray-200;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+/* Mobile Optimizations for Quick Actions */
+@media (max-width: 768px) {
+  .quick-actions-content {
+    @apply mx-4 p-4;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  }
+
+  .quick-action-button {
+    @apply text-sm p-2;
+  }
+}
+
+/* Authentication Components */
+.auth-container {
+  @apply fixed top-4 right-4 flex items-center gap-4;
+  z-index: 1000;
+  min-width: 400px;
+}
+
+.auth-divider {
+  @apply h-6 w-px bg-gray-300;
+}
+
+/* Q&A Section Specific Styles */
+.qa-section {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-8 mt-8;
+}
+
+.questions-list,
+.answers-list {
+  @apply space-y-6;
+}
+
+.cast-item {
+  @apply bg-white rounded-lg shadow-sm p-4 border border-gray-100 transition-all;
+}
+
+.cast-item:hover {
+  @apply shadow-md;
+}
+
+.cast-header {
+  @apply flex items-center gap-3 mb-2;
+}
+
+.cast-content {
+  @apply text-gray-800 text-sm whitespace-pre-wrap;
+}
+
+/* Quick Action Buttons */
+.quick-action-button {
+  @apply p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-center;
+  min-width: 40px;
+}
+
+.quick-move-button {
+  @apply absolute right-2 top-2 p-1 rounded-full bg-white bg-opacity-80 
+    hover:bg-opacity-100 transition-all text-lg z-10 shadow-sm border border-gray-200;
+}
+
+/* Mode Toggle */
+.mode-toggle {
+  @apply px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 
+    rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 
+    focus:ring-offset-2 focus:ring-purple-500;
+}
+
+/* Ensure messages are properly centered in both modes */
+.message-bubble {
+  @apply rounded-2xl p-4 relative break-words;
+  max-width: 90%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.message-header,
+.message-content {
+  @apply text-center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .auth-container {
+    min-width: unset;
+    width: 100%;
+    padding: 0 1rem;
+  }
+
+  .matching-grid {
+    display: none;
+  }
+
+  .qa-pair {
+    @apply mx-2;
+  }
+}
+
+/* Quick Move Buttons */
+.quick-move-button {
+  @apply absolute p-1.5 rounded-full bg-white bg-opacity-80 
+    hover:bg-opacity-100 transition-all z-10 shadow-sm border border-gray-200;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.quick-move-button-right {
+  @apply right-2 top-2;
+}
+
+.quick-move-button-left {
+  @apply left-2 top-2;
+}
+
+.quick-move-pair-button {
+  @apply p-1.5 rounded-full bg-white hover:bg-gray-100 
+    transition-all shadow-sm border border-gray-200;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .matching-grid {
+    display: none;
+  }
+
+  .qa-pair {
+    @apply mx-2 w-full;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .message-bubble-left,
+  .message-bubble-right {
+    width: 100%;
+  }
+
+  .numbered-band {
+    @apply flex justify-between items-center px-4;
+  }
+
+  .quick-move-button,
+  .quick-move-pair-button {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .auth-container {
+    @apply px-4 flex-wrap;
+    min-width: unset;
+    width: 100%;
+  }
+}
+
+/* Quick Actions Overlay */
+.quick-actions-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.quick-actions-content {
+  @apply bg-white rounded-lg p-4 w-full max-w-md mx-4;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.quick-actions-header {
+  @apply flex justify-between items-center mb-4 pb-2 border-b;
+}
+
+.quick-actions-grid {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+}
+
+.quick-action-button {
+  @apply p-2 rounded-lg bg-gray-100 hover:bg-gray-200 
+    transition-colors text-center text-sm font-medium;
+}
+
+/* Add extra padding for the quick move buttons */
+.message-bubble-left,
+.message-bubble-right {
+  padding-top: 3rem;
+}
+
+.controls-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.controls-header .quick-move-button,
+.controls-header .quick-move-pair-button,
+.controls-header .stack-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.legend-item {
+  white-space: nowrap;
+}
+
+/* Ensure all controls stay in line */
+.controls-header > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2rem;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  /* Hide Farcaster button text on mobile */
+  .neynar_signin [data-variant='farcaster'] {
+    width: auto !important;
+    padding: 8px !important;
+    min-width: unset !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .neynar_signin [data-variant='farcaster'] span {
+    display: none !important;
+  }
+
+  .neynar_signin [data-variant='farcaster'] img {
+    margin: 0 !important;
+  }
+
+  /* Stack archive sections on mobile */
+  .archive-grid {
+    flex-direction: column !important;
+    gap: 2rem !important;
+  }
+
+  .archive-section {
+    max-width: 100% !important;
+  }
+
+  /* Adjust try bar width on mobile */
+  .try-input {
+    width: 240px !important;
+  }
+
+  /* Center auth buttons on mobile */
+  .auth-buttons-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 0 1rem !important;
+  }
+
+  .auth-buttons-container > div {
+    width: auto !important;
+    min-width: unset !important;
+  }
+}
+
+/* Center and align connect buttons across all sizes */
+.auth-buttons-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  position: relative;
+  z-index: 50;
+}
+
+/* Ensure links are clickable */
+.archive-grid,
+.try-input,
+a {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  /* Mobile-specific styles */
+  .auth-buttons-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 0 1rem !important;
+  }
+
+  .auth-buttons-container > div {
+    width: auto !important;
+    min-width: unset !important;
+  }
+
+  /* Hide Farcaster button text on mobile */
+  .neynar_signin [data-variant='farcaster'] {
+    width: auto !important;
+    padding: 8px !important;
+    min-width: unset !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .neynar_signin [data-variant='farcaster'] span {
+    display: none !important;
+  }
+
+  .neynar_signin [data-variant='farcaster'] img {
+    margin: 0 !important;
+  }
+}
+
+/* Ensure consistent button heights and compact Farcaster button */
+.neynar_signin [data-variant='farcaster'] {
+  height: 40px !important;
+  border-radius: 12px !important;
+  width: auto !important;
+  min-width: unset !important;
+  padding: 0 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+
+/* Remove avatar from Farcaster button */
+.neynar_signin [data-variant='farcaster'] img:not([alt='Farcaster']) {
+  display: none !important;
+}
