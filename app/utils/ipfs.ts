@@ -228,3 +228,17 @@ export async function verifyIPFSContent(contentHash: string): Promise<boolean> {
     return false
   }
 }
+
+export async function fetchFromIPFS(contentHash: string) {
+  try {
+    // Use our proxy endpoint instead of direct IPFS gateway
+    const response = await fetch(`/api/ipfs/${contentHash}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch from IPFS')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching from IPFS:', error)
+    throw error
+  }
+}
