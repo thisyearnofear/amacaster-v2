@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Auth Container Styles */
+.auth-buttons-container {
+  @apply fixed top-0 right-0 flex items-center gap-4 p-4 z-50 bg-white/80 backdrop-blur-sm;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .icon-size {
   height: 24px;
   width: 24px;

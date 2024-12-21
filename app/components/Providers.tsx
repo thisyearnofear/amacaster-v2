@@ -7,7 +7,7 @@ import {
   getDefaultWallets,
 } from '@rainbow-me/rainbowkit'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider, http } from 'wagmi'
+import { WagmiProvider, http, createStorage } from 'wagmi'
 import { mainnet, optimism, optimismSepolia } from 'wagmi/chains'
 import { useState } from 'react'
 
@@ -29,6 +29,28 @@ const RPC_URLS = {
     'https://sepolia.optimism.io',
 }
 
+// Create a custom storage that works in both client and server environments
+const storage = createStorage({
+  storage: {
+    getItem: (key) => {
+      if (typeof window !== 'undefined') {
+        return window.localStorage.getItem(key)
+      }
+      return null
+    },
+    setItem: (key, value) => {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, value)
+      }
+    },
+    removeItem: (key) => {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(key)
+      }
+    },
+  },
+})
+
 const config = getDefaultConfig({
   appName: 'Amacaster',
   projectId,
@@ -40,6 +62,7 @@ const config = getDefaultConfig({
   },
   wallets,
   ssr: true,
+  storage,
   // Add additional options for better stability
   syncConnectedChain: true,
   pollingInterval: 12_000, // 12 seconds
@@ -63,7 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider showRecentTransactions={true} coolMode>
+        <RainbowKitProvider showRecentTransactions={true} coolMode={true}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

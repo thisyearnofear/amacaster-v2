@@ -24,14 +24,11 @@ const nextConfig = {
   },
   // Performance optimizations
   experimental: {
-    optimizeCss: true, // Enable CSS optimization
+    optimizeCss: false, // Enable CSS optimization
     scrollRestoration: true, // Improve scroll restoration
-    workerThreads: true, // Enable worker threads for better performance
-    optimizePackageImports: [
-      '@rainbow-me/rainbowkit',
-      '@tanstack/react-query',
-      'wagmi',
-    ],
+    workerThreads: false, // Enable worker threads for better performance
+    optimizePackageImports: false,
+    transpilePackages: ['@rainbow-me/rainbowkit'],
   },
   // Cache optimization
   onDemandEntries: {
