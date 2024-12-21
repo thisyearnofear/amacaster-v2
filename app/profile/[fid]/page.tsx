@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { SignInWithNeynar } from '../../components/SignInWithNeynar'
 import { ProfilesSection } from '../../components/ProfilesSection'
 import Link from 'next/link'
+import { fetchFromIPFS } from '../../utils/ipfs'
 
 interface Web3BioProfile {
   address: string
@@ -81,32 +82,20 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
         // If the FID doesn't match the current user, we need to fetch the username from Pinata
         if (!username || neynarUser?.fid !== parseInt(params.fid)) {
-          const pinataJwt = process.env.NEXT_PUBLIC_PINATA_JWT
-          if (!pinataJwt) {
-            throw new Error('Pinata JWT is not configured')
+          try {
+            const response = await fetch(`/api/farcaster/users/${params.fid}`)
+            if (!response.ok) {
+              throw new Error('Failed to fetch user data')
+            }
+            const data = await response.json()
+            if (!data.user?.username) {
+              throw new Error('User not found')
+            }
+            username = data.user.username
+          } catch (error) {
+            console.error('Error fetching Farcaster user:', error)
+            throw error
           }
-
-          const pinataResponse = await fetch(
-            `https://api.pinata.cloud/v3/farcaster/users/${params.fid}`,
-            {
-              headers: {
-                Authorization: `Bearer ${pinataJwt}`,
-                'Cache-Control': 'no-cache',
-              },
-              cache: 'no-store',
-            },
-          )
-
-          if (!pinataResponse.ok) {
-            throw new Error('Failed to fetch user data')
-          }
-
-          const pinataData = await pinataResponse.json()
-          if (!pinataData.user?.username) {
-            throw new Error('User not found')
-          }
-
-          username = pinataData.user.username
         }
 
         if (!username) {
