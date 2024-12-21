@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
 import {
   useAccount,
-  useNetwork,
-  useContractWrite,
+  useChainId,
+  useWriteContract,
   useWaitForTransactionReceipt,
-  useContractRead,
+  useReadContract,
 } from 'wagmi'
 import { type Hash } from 'viem'
 import { CONTRACTS } from '../config/contracts'
@@ -35,38 +35,35 @@ interface ContractDetails {
 }
 
 export function useAMAContract() {
-  const { chain } = useNetwork()
+  const chainId = useChainId()
   const { address } = useAccount()
-  const [transactionHash, setTransactionHash] = useState<Hash | null>(null)
+  const [transactionHash, setTransactionHash] = useState<Hash | undefined>(
+    undefined,
+  )
 
-  const isCorrectNetwork = chain?.id === CONTRACTS.AMAMatcher.chainId
+  const isCorrectNetwork = chainId === CONTRACTS.AMAMatcher.chainId
 
-  const { writeAsync: submitContractWrite, isLoading: isWriteLoading } =
-    useContractWrite({
-      address: CONTRACTS.AMAMatcher.address,
-      abi: AMA_CONTRACT_ABI,
-      functionName: 'submitContract',
-    })
+  const { writeContractAsync: submitContractWrite, isPending: isWriteLoading } =
+    useWriteContract()
 
-  const { writeAsync: registerFidWrite } = useContractWrite({
-    address: CONTRACTS.AMAMatcher.address,
-    abi: AMA_CONTRACT_ABI,
-    functionName: 'registerFid',
-  })
+  const { writeContractAsync: registerFidWrite } = useWriteContract()
 
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash: transactionHash,
   })
 
-  const getContractDetails = useCallback(async (contractId: string) => {
-    const { data } = await useContractRead({
-      address: CONTRACTS.AMAMatcher.address,
-      abi: AMA_CONTRACT_ABI,
-      functionName: 'getContractDetails',
-      args: [contractId as `0x${string}`],
-    })
-    return data as ContractDetails
-  }, [])
+  const { data: contractDetails } = useReadContract({
+    address: CONTRACTS.AMAMatcher.address as `0x${string}`,
+    abi: AMA_CONTRACT_ABI,
+    functionName: 'getContractDetails',
+  })
+
+  const getContractDetails = useCallback(
+    async (contractId: string) => {
+      return contractDetails as ContractDetails
+    },
+    [contractDetails],
+  )
 
   const submitContract = useCallback(
     async ({
@@ -79,9 +76,13 @@ export function useAMAContract() {
     }: AMAContractSubmission) => {
       if (!address) throw new Error('Wallet not connected')
       if (!isCorrectNetwork) throw new Error('Wrong network')
+      if (!submitContractWrite) throw new Error('Contract write not available')
 
       try {
-        const tx = await submitContractWrite({
+        const hash = await submitContractWrite({
+          address: CONTRACTS.AMAMatcher.address as `0x${string}`,
+          abi: AMA_CONTRACT_ABI,
+          functionName: 'submitContract',
           args: [
             title,
             description,
@@ -92,8 +93,8 @@ export function useAMAContract() {
           value: rewardAmount,
         })
 
-        setTransactionHash(tx.hash)
-        return tx.hash
+        setTransactionHash(hash)
+        return hash
       } catch (error) {
         console.error('Error submitting contract:', error)
         throw error
@@ -106,14 +107,18 @@ export function useAMAContract() {
     async (fid: number) => {
       if (!address) throw new Error('Wallet not connected')
       if (!isCorrectNetwork) throw new Error('Wrong network')
+      if (!registerFidWrite) throw new Error('Contract write not available')
 
       try {
-        const tx = await registerFidWrite({
+        const hash = await registerFidWrite({
+          address: CONTRACTS.AMAMatcher.address as `0x${string}`,
+          abi: AMA_CONTRACT_ABI,
+          functionName: 'registerFid',
           args: [BigInt(fid)],
         })
 
-        setTransactionHash(tx.hash)
-        return tx.hash
+        setTransactionHash(hash)
+        return hash
       } catch (error) {
         console.error('Error registering FID:', error)
         throw error

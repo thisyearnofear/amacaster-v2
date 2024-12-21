@@ -189,7 +189,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     }
 
     fetchUserProfile()
-  }, [params.fid])
+  }, [
+    params.fid,
+    neynarUser?.fid,
+    neynarUser?.username,
+    web3BioProfile?.social?.uid,
+  ])
 
   const handleCreateProfile = async () => {
     if (!neynarUser || creating) return

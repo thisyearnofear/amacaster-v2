@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['@rainbow-me/rainbowkit'],
   images: {
     remotePatterns: [
       {
@@ -24,11 +25,7 @@ const nextConfig = {
   },
   // Performance optimizations
   experimental: {
-    optimizeCss: false, // Enable CSS optimization
-    scrollRestoration: true, // Improve scroll restoration
-    workerThreads: false, // Enable worker threads for better performance
-    optimizePackageImports: false,
-    transpilePackages: ['@rainbow-me/rainbowkit'],
+    scrollRestoration: true,
   },
   // Cache optimization
   onDemandEntries: {
