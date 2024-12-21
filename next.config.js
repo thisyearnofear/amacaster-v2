@@ -22,7 +22,7 @@ const nextConfig = {
       use: ['@svgr/webpack'],
     })
     config.module.rules.push({
-      test: /\/(hardhat\.config|turnkeyClient)\.ts$/,
+      test: /\/(hardhat\.config|contracts|contracts-temp)\//,
       use: 'ignore-loader',
     })
     return config

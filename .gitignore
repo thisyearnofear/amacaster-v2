@@ -44,3 +44,4 @@ next-env.d.ts
 /contracts/coverage
 /contracts/coverage.json
 node_modules
+contracts-temp/
