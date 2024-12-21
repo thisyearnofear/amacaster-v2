@@ -55,19 +55,10 @@ export function MatchSubmission({
   onSuccess,
   onError,
 }: MatchSubmissionProps) {
-  const { submit, finalize, isSubmitting, error, state, currentSubmission } =
+  const { submit, isSubmitting, error, state, currentSubmission } =
     useMatchSubmission(amaId)
 
   const [localError, setLocalError] = useState<string | null>(null)
-  const [isDraft, setIsDraft] = useState(true)
-
-  // Load existing submission state
-  useEffect(() => {
-    if (currentSubmission) {
-      const submissionData = currentSubmission as MatchSubmissionData
-      setIsDraft(submissionData[1].length === 0) // If no rankings, it's a draft
-    }
-  }, [currentSubmission])
 
   // Memoize handlers to prevent unnecessary re-renders
   const handleSubmit = useMemo(
@@ -79,7 +70,7 @@ export function MatchSubmission({
           throw new Error('Please add at least one match')
         }
 
-        await submit(matches, isDraft)
+        await submit(matches)
         onSuccess?.()
       } catch (err) {
         console.error('Error submitting matches:', err)
@@ -88,33 +79,13 @@ export function MatchSubmission({
         onError?.(err as Error)
       }
     },
-    [matches, isDraft, submit, onSuccess, onError],
-  )
-
-  const handleFinalize = useMemo(
-    () => async () => {
-      try {
-        await finalize()
-        onSuccess?.()
-      } catch (err) {
-        console.error('Error finalizing submission:', err)
-        const message = err instanceof Error ? err.message : 'Unknown error'
-        setLocalError(message)
-        onError?.(err as Error)
-      }
-    },
-    [finalize, onSuccess, onError],
+    [matches, submit, onSuccess, onError],
   )
 
   // Memoize button states
   const submitButtonDisabled = useMemo(
     () => isSubmitting || matches.length === 0,
     [isSubmitting, matches.length],
-  )
-
-  const showFinalizeButton = useMemo(
-    () => state.isDraft && matches.length > 0,
-    [state.isDraft, matches.length],
   )
 
   return (
@@ -125,11 +96,6 @@ export function MatchSubmission({
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
           {error?.message || localError}
         </div>
-      )}
-
-      {/* Current Submission Info */}
-      {currentSubmission && (
-        <SubmissionInfo submission={currentSubmission as MatchSubmissionData} />
       )}
 
       {/* Match List */}
@@ -154,16 +120,6 @@ export function MatchSubmission({
         >
           {isSubmitting ? 'Submitting...' : 'Submit Matches'}
         </button>
-
-        {showFinalizeButton && (
-          <button
-            onClick={handleFinalize}
-            disabled={isSubmitting}
-            className="flex-1 py-2 px-4 border border-purple-600 rounded-md shadow-sm text-sm font-medium text-purple-600 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-          >
-            Finalize Submission
-          </button>
-        )}
       </div>
     </div>
   )
