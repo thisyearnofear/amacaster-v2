@@ -3,7 +3,7 @@
   publish = ".next"
 
 [build.environment]
-  NEXT_TELEMETRY_DISABLED = "1"
+  NODE_VERSION = "20.11.1"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs" 
