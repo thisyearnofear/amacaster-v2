@@ -6,7 +6,6 @@
 /node_modules
 /.pnp
 .pnp.js
-.yarn/install-state.gz
 
 # testing
 /coverage
@@ -37,11 +36,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# hardhat
-/contracts/artifacts
-/contracts/cache
-/contracts/typechain-types
-/contracts/coverage
-/contracts/coverage.json
-node_modules
-contracts-temp/
+# Hardhat files
+/contracts
+/scripts
+/test
+hardhat.config.ts

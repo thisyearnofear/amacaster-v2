@@ -26,10 +26,17 @@
   "typeRoots": ["./node_modules/@types", "./types"],
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "lib/**/*.ts",
     "custom.d.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "contracts/**/*", "contracts-temp/**/*"]
+  "exclude": [
+    "node_modules",
+    "contracts",
+    "scripts",
+    "hardhat.config.ts",
+    "test"
+  ]
 }
