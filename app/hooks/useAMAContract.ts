@@ -10,6 +10,13 @@ import { type Hash } from 'viem'
 import { CONTRACTS } from '../config/contracts'
 import { AMA_CONTRACT_ABI } from '../config/ama-contract'
 
+export interface UserReputation {
+  baseScore: bigint
+  qualityMultiplier: bigint
+  effectiveScore: bigint
+  cooldownPeriod: bigint
+}
+
 interface AMAContractSubmission {
   title: string
   description: string

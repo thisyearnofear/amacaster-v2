@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   useAccount,
   useContractRead,
-  useContractWrite,
-  useTransaction,
+  useWriteContract,
+  useWaitForTransactionReceipt,
   type Config,
 } from 'wagmi'
 import { useNeynarUser } from './useNeynarUser'
@@ -38,6 +38,8 @@ export function useUserProfile(): UseUserProfileReturn {
   const [profile, setProfile] = useState<OnChainProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [createTxHash, setCreateTxHash] = useState<Hash | undefined>()
+  const [updateTxHash, setUpdateTxHash] = useState<Hash | undefined>()
 
   // Read profile data
   const { data: profileData, isError: readError } = useContractRead({
@@ -48,32 +50,17 @@ export function useUserProfile(): UseUserProfileReturn {
   })
 
   // Write contract functions
-  const {
-    data: createTxHash,
-    writeContract: createProfile,
-    isPending: isCreating,
-  } = useContractWrite({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'createProfile',
-  })
-
-  const {
-    data: updateTxHash,
-    writeContract: updateProfile,
-    isPending: isUpdating,
-  } = useContractWrite({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'updateProfile',
-  })
+  const { writeContractAsync: createProfileWrite, isPending: isCreating } =
+    useWriteContract()
+  const { writeContractAsync: updateProfileWrite, isPending: isUpdating } =
+    useWriteContract()
 
   // Wait for transactions
-  const { isLoading: isWaitingCreate } = useTransaction({
+  const { isLoading: isWaitingCreate } = useWaitForTransactionReceipt({
     hash: createTxHash,
   })
 
-  const { isLoading: isWaitingUpdate } = useTransaction({
+  const { isLoading: isWaitingUpdate } = useWaitForTransactionReceipt({
     hash: updateTxHash,
   })
 
@@ -104,10 +91,14 @@ export function useUserProfile(): UseUserProfileReturn {
     }
 
     try {
-      const result = await createProfile({
+      const hash = await createProfileWrite({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: 'createProfile',
         args: [BigInt(neynarUser.fid)],
       })
-      return result
+      setCreateTxHash(hash)
+      return hash
     } catch (err) {
       console.error('Error creating profile:', err)
       throw err
@@ -119,10 +110,14 @@ export function useUserProfile(): UseUserProfileReturn {
     score: number,
   ): Promise<Hash | undefined> => {
     try {
-      const result = await updateProfile({
+      const hash = await updateProfileWrite({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: 'updateProfile',
         args: [BigInt(matchesSubmitted), BigInt(score)],
       })
-      return result
+      setUpdateTxHash(hash)
+      return hash
     } catch (err) {
       console.error('Error updating profile:', err)
       throw err

@@ -21,6 +21,10 @@ const nextConfig = {
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     })
+    config.module.rules.push({
+      test: /\/(hardhat\.config|turnkeyClient)\.ts$/,
+      use: 'ignore-loader',
+    })
     return config
   },
   // Performance optimizations

@@ -55,14 +55,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchProfiles = async () => {
-      if (!neynarUser?.username && !neynarUser?.user?.username) {
+      if (!neynarUser?.username) {
         setLoading(false)
         return
       }
 
       try {
         // Fetch Web3.bio profile
-        const username = neynarUser.user?.username || neynarUser.username
+        const username = neynarUser.username
         const web3BioResponse = await fetch(
           `https://api.web3.bio/profile/farcaster/${username}`,
         )
@@ -153,28 +153,19 @@ export default function ProfilePage() {
               <Image
                 src={
                   web3BioProfile?.avatar ||
-                  neynarUser?.user?.pfp?.url ||
                   neynarUser?.pfp?.url ||
                   '/default-avatar.png'
                 }
-                alt={
-                  web3BioProfile?.displayName ||
-                  neynarUser?.user?.displayName ||
-                  neynarUser?.displayName
-                }
+                alt={web3BioProfile?.displayName || neynarUser?.displayName}
                 fill
                 className="rounded-full object-cover"
               />
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold">
-                {web3BioProfile?.displayName ||
-                  neynarUser?.user?.displayName ||
-                  neynarUser?.displayName}
+                {web3BioProfile?.displayName || neynarUser?.displayName}
               </h1>
-              <p className="text-gray-600">
-                @{neynarUser?.user?.username || neynarUser?.username}
-              </p>
+              <p className="text-gray-600">@{neynarUser?.username}</p>
               {web3BioProfile?.description && (
                 <p className="mt-2 text-gray-700">
                   {web3BioProfile.description}
@@ -250,39 +241,10 @@ export default function ProfilePage() {
                   description="Submit 10 matches"
                   unlocked={Boolean(profile.achievementFlags & 2)}
                 />
-                <Achievement
-                  title="High Scorer"
-                  description="Reach a total score of 100"
-                  unlocked={Boolean(profile.achievementFlags & 4)}
-                />
               </div>
             </div>
           </div>
         )}
-
-        {/* Social Links */}
-        {web3BioProfile?.links &&
-          Object.keys(web3BioProfile.links).length > 0 && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4">Social Links</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(web3BioProfile.links).map(
-                  ([platform, data]) => (
-                    <a
-                      key={platform}
-                      href={data.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-gray-700 hover:text-purple-600 transition-colors"
-                    >
-                      <span className="capitalize">{platform}:</span>
-                      <span className="text-gray-600">{data.handle}</span>
-                    </a>
-                  ),
-                )}
-              </div>
-            </div>
-          )}
       </div>
     </div>
   )
@@ -308,19 +270,13 @@ function Achievement({
       <div className="flex items-center gap-3">
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            unlocked ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-600'
+            unlocked ? 'bg-purple-500' : 'bg-gray-300'
           }`}
         >
           {unlocked ? '✓' : '?'}
         </div>
         <div>
-          <h4
-            className={`font-semibold ${
-              unlocked ? 'text-purple-900' : 'text-gray-600'
-            }`}
-          >
-            {title}
-          </h4>
+          <h4 className="font-semibold">{title}</h4>
           <p className="text-sm text-gray-600">{description}</p>
         </div>
       </div>
@@ -330,7 +286,7 @@ function Achievement({
 
 function countAchievements(flags: number): number {
   let count = 0
-  while (flags > 0) {
+  while (flags) {
     count += flags & 1
     flags >>= 1
   }

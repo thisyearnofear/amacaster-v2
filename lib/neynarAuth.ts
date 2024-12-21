@@ -18,7 +18,7 @@ class NeynarAuthClient {
     if (!apiKey) {
       throw new Error('NEXT_PUBLIC_NEYNAR_API_KEY is not set')
     }
-    this.client = new NeynarAPIClient(apiKey)
+    this.client = new NeynarAPIClient({ apiKey })
   }
 
   async signIn(): Promise<NeynarAuthResponse> {

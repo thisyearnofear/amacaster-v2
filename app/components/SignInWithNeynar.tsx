@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { type NeynarSignInResponse, type NeynarUser } from '../types/neynar'
 
@@ -8,15 +8,27 @@ interface SignInWithNeynarProps {
   onSignInSuccess?: (data: NeynarSignInResponse) => void
 }
 
-declare global {
-  interface Window {
-    onSignInSuccess?: (data: NeynarSignInResponse) => void
-  }
-}
-
 export function SignInWithNeynar({ onSignInSuccess }: SignInWithNeynarProps) {
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<NeynarSignInResponse | null>(null)
+
+  const handleSignInSuccess = useCallback(
+    (data: NeynarSignInResponse) => {
+      console.log('Sign-in success with data:', data)
+      if ('error' in data) {
+        setError(data.error as string)
+        return
+      }
+
+      // Store user data in localStorage
+      localStorage.setItem('neynar_user', JSON.stringify(data))
+      localStorage.setItem('neynar_signer_uuid', data.signer_uuid)
+
+      setUser(data)
+      onSignInSuccess?.(data)
+    },
+    [onSignInSuccess],
+  )
 
   useEffect(() => {
     // Try to get stored user data
@@ -38,21 +50,8 @@ export function SignInWithNeynar({ onSignInSuccess }: SignInWithNeynarProps) {
       return
     }
 
-    // Define the callback function
-    window.onSignInSuccess = (data: NeynarSignInResponse) => {
-      console.log('Sign-in success with data:', data)
-      if ('error' in data) {
-        setError(data.error as string)
-        return
-      }
-
-      // Store user data in localStorage
-      localStorage.setItem('neynar_user', JSON.stringify(data))
-      localStorage.setItem('neynar_signer_uuid', data.signer_uuid)
-
-      setUser(data)
-      onSignInSuccess?.(data)
-    }
+    // Assign the callback function to window
+    ;(window as any).onSignInSuccess = handleSignInSuccess
 
     // Load the SIWN script
     const script = document.createElement('script')
@@ -67,11 +66,9 @@ export function SignInWithNeynar({ onSignInSuccess }: SignInWithNeynarProps) {
       if (script.parentNode) {
         script.parentNode.removeChild(script)
       }
-      if (window.onSignInSuccess) {
-        window.onSignInSuccess = undefined
-      }
+      delete (window as any).onSignInSuccess
     }
-  }, [onSignInSuccess])
+  }, [handleSignInSuccess, onSignInSuccess])
 
   const handleSignOut = () => {
     localStorage.removeItem('neynar_user')
