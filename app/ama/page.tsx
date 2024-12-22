@@ -67,8 +67,8 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
   const [guestUser, setGuestUser] = useState<Author | null>(null)
   const { neynarUser, isConnected } = useNeynarUser()
 
-  // Update admin state based on user connection - during testing phase, any logged-in user can submit
-  const isAdmin = isConnected || !!neynarUser
+  // Only show admin instructions for specific admin users
+  const isAdmin = false // For now, show user instructions to everyone
 
   useEffect(() => {
     async function fetchData() {
@@ -222,18 +222,11 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         {/* Instructions Banner */}
         <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg text-center">
           <h2 className="text-lg font-medium mb-2">AMAcaster</h2>
-          <p className="text-sm text-gray-600">
-            {isAdmin ? (
-              'Arrange questions and answers in the correct order. Stack multiple answers if needed.'
-            ) : (
-              <>
-                Match q&a pairs. Rank question usefulness. Submit onchain.
-                <br />
-                POAPs distributed [participation, understanding, usefulness] =
-                NFT split.
-              </>
-            )}
-          </p>
+          <div className="text-sm text-gray-600 space-y-1">
+            <div>Choose your top 5 most useful Q&As</div>
+            <div>Match and rank them by usefulness</div>
+            <div>Stack multiple answers if needed.</div>
+          </div>
         </div>
 
         {/* Guest Profile */}

@@ -70,12 +70,33 @@ async function fetchMatchesFromIPFS(ipfsHash: string): Promise<Match[]> {
     console.log('Fetching matches from IPFS hash:', ipfsHash)
     const response = await fetch(`${gateway}/ipfs/${ipfsHash}`)
     if (!response.ok) throw new Error('Failed to fetch from IPFS')
-    const data = await response.json()
-    console.log('IPFS response:', data)
+
+    // Check content type
+    const contentType = response.headers.get('content-type')
+    if (!contentType?.includes('application/json')) {
+      console.log('Skipping non-JSON content:', contentType)
+      return []
+    }
+
+    // Try to parse response as text first
+    const text = await response.text()
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch (e) {
+      console.log('Failed to parse JSON from IPFS:', text.slice(0, 100))
+      return []
+    }
+
+    console.log('IPFS response data:', {
+      amaId: data.amaId,
+      merkle_root: data.merkle_root,
+      matchCount: data.matches?.length,
+    })
 
     // Transform the matches into the expected format
     if (data.matches) {
-      return data.matches.map((match: any) => ({
+      const transformedMatches = data.matches.map((match: any) => ({
         id:
           match.hash ||
           `${data.amaId}-${match.questionContent.cast_id}-${match.answerContent.cast_id}`,
@@ -91,11 +112,13 @@ async function fetchMatchesFromIPFS(ipfsHash: string): Promise<Match[]> {
         contractId: data.amaId,
         rankings: [match.ranking],
       }))
+      console.log('Transformed matches:', transformedMatches.length)
+      return transformedMatches
     }
     return []
   } catch (error) {
     console.error('Error fetching from IPFS:', error)
-    throw error
+    return [] // Return empty array instead of throwing
   }
 }
 
@@ -221,7 +244,7 @@ export async function GET(
     )
 
     const matches: Match[] = []
-    const processedAmaIds = new Set<string>()
+    const processedAmaIds = new Map<string, Date>()
 
     // Process submissions in chronological order (newest first)
     for (const submission of submissions) {
@@ -229,25 +252,27 @@ export async function GET(
         console.log('Processing submission:', submission)
         const ipfsMatches = await fetchMatchesFromIPFS(submission.ipfs_pin_hash)
 
-        // For each submission, add all matches from AMAs we haven't seen yet
+        // Group matches by AMA
         for (const match of ipfsMatches) {
-          if (!processedAmaIds.has(match.contractId)) {
-            // Add all matches from this AMA submission
-            matches.push(
-              ...ipfsMatches.filter((m) => m.contractId === match.contractId),
+          const submissionDate = new Date(match.timestamp)
+          const existingDate = processedAmaIds.get(match.contractId)
+
+          if (!existingDate || submissionDate > existingDate) {
+            // Remove any existing matches for this AMA
+            const filteredMatches = matches.filter(
+              (m) => m.contractId !== match.contractId,
             )
-            processedAmaIds.add(match.contractId)
-            console.log(
-              'Added matches for AMA:',
-              match.contractId,
-              'from submission:',
-              submission.ipfs_pin_hash,
+            // Add all matches from this submission for this AMA
+            const newMatches = ipfsMatches.filter(
+              (m) => m.contractId === match.contractId,
             )
-          } else {
+            matches.splice(0, matches.length, ...filteredMatches, ...newMatches)
+            processedAmaIds.set(match.contractId, submissionDate)
             console.log(
-              'Skipping matches for AMA:',
+              'Updated matches for AMA:',
               match.contractId,
-              'already processed',
+              'count:',
+              newMatches.length,
             )
           }
         }
@@ -257,8 +282,13 @@ export async function GET(
       }
     }
 
-    console.log('Total matches found:', matches.length)
-    return NextResponse.json(matches)
+    // Sort matches by ranking within each AMA
+    const sortedMatches = matches.sort(
+      (a, b) => (a.score || 0) - (b.score || 0),
+    )
+
+    console.log('Total matches found:', sortedMatches.length)
+    return NextResponse.json(sortedMatches)
   } catch (error) {
     console.error('Error in GET handler:', error)
     return NextResponse.json(

@@ -188,20 +188,48 @@ export default function ProfileClient({ fid }: { fid: string }) {
   const { profile, loading: isLoadingProfile } = useWeb3BioProfile(fid)
   const { data: matches = [], isLoading: isLoadingMatches } = useMatches(fid)
 
-  // Group matches by AMA and take only the latest submission for each
+  // Group matches by AMA and take all matches from the latest submission for each AMA
   const latestMatches = matches.reduce((acc: Match[], match) => {
-    const existingIndex = acc.findIndex(
+    const existingMatchesForAma = acc.filter(
       (m) => m.contractId === match.contractId,
     )
-    if (existingIndex === -1) {
-      acc.push(match)
-    } else if (
-      new Date(match.timestamp) > new Date(acc[existingIndex].timestamp)
-    ) {
-      acc[existingIndex] = match
+
+    if (existingMatchesForAma.length === 0) {
+      // First time seeing this AMA, add all matches from this submission
+      acc.push(...matches.filter((m) => m.contractId === match.contractId))
+    } else {
+      const existingTimestamp = new Date(existingMatchesForAma[0].timestamp)
+      const newTimestamp = new Date(match.timestamp)
+
+      if (newTimestamp > existingTimestamp) {
+        // Remove old matches for this AMA
+        acc = acc.filter((m) => m.contractId !== match.contractId)
+        // Add all matches from this newer submission
+        acc.push(...matches.filter((m) => m.contractId === match.contractId))
+      }
     }
     return acc
   }, [])
+
+  // Sort matches by ranking (1 to 5)
+  const sortedMatches = [...latestMatches].sort((a, b) => {
+    // First sort by contractId to group AMA matches together
+    if (a.contractId !== b.contractId) {
+      return a.contractId.localeCompare(b.contractId)
+    }
+    // Then sort by ranking within each AMA
+    return (a.score || 0) - (b.score || 0)
+  })
+
+  console.log('Matches:', {
+    original: matches.length,
+    latest: latestMatches.length,
+    sorted: sortedMatches.length,
+    byAma: sortedMatches.reduce((acc, m) => {
+      acc[m.contractId] = (acc[m.contractId] || 0) + 1
+      return acc
+    }, {} as Record<string, number>),
+  })
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -210,11 +238,11 @@ export default function ProfileClient({ fid }: { fid: string }) {
       ) : (
         <>
           <ProfileHeader profile={profile} />
-          <ProfileMetrics matches={latestMatches} fid={fid} />
-          {latestMatches.length === 0 ? (
+          <ProfileMetrics matches={sortedMatches} fid={fid} />
+          {sortedMatches.length === 0 ? (
             <EmptyState />
           ) : (
-            <MatchHistory matches={latestMatches} />
+            <MatchHistory matches={sortedMatches} />
           )}
           <FeaturedAMAs />
         </>
