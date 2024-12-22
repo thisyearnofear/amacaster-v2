@@ -100,6 +100,8 @@ export async function getFarcasterUser(
     }
 
     const profiles = await response.json()
+    console.log('Web3.bio response:', profiles)
+
     const farcasterProfile = Array.isArray(profiles)
       ? profiles.find(
           (profile: Web3BioProfile) => profile.platform === 'farcaster',
@@ -115,6 +117,15 @@ export async function getFarcasterUser(
       farcasterProfile.social = {
         ...farcasterProfile.social,
         uid: Number(identifier),
+      }
+    }
+
+    // Ensure social data is present
+    if (!farcasterProfile.social) {
+      farcasterProfile.social = {
+        uid: type === 'fid' ? Number(identifier) : undefined,
+        follower: 0,
+        following: 0,
       }
     }
 

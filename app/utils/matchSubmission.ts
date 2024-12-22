@@ -90,17 +90,45 @@ function validateMatchContent(
   content: MatchContent,
   type: 'question' | 'answer',
 ): void {
-  if (!content.text?.trim()) {
+  // Check if content exists
+  if (!content) {
+    throw new ValidationError(`Missing ${type} content`)
+  }
+
+  // Check if text exists and is not empty
+  if (
+    !content.text ||
+    typeof content.text !== 'string' ||
+    !content.text.trim()
+  ) {
     throw new ValidationError(`Invalid ${type} text`)
   }
-  if (!content.cast_id) {
+
+  // Check if cast_id exists
+  if (!content.cast_id || typeof content.cast_id !== 'string') {
     throw new ValidationError(`Invalid ${type} cast ID`)
   }
-  if (!content.timestamp || content.timestamp <= 0) {
+
+  // Check if timestamp exists and is valid
+  if (
+    !content.timestamp ||
+    typeof content.timestamp !== 'number' ||
+    content.timestamp <= 0
+  ) {
     throw new ValidationError(`Invalid ${type} timestamp`)
   }
-  if (!content.author?.fid || !content.author?.username) {
-    throw new ValidationError(`Invalid ${type} author information`)
+
+  // Check if author exists and has required fields
+  if (!content.author || typeof content.author !== 'object') {
+    throw new ValidationError(`Missing ${type} author`)
+  }
+
+  if (!content.author.fid || typeof content.author.fid !== 'number') {
+    throw new ValidationError(`Invalid ${type} author FID`)
+  }
+
+  if (!content.author.username || typeof content.author.username !== 'string') {
+    throw new ValidationError(`Invalid ${type} author username`)
   }
 }
 
@@ -179,6 +207,16 @@ export async function submitMatches(
       merkle_root: merkleData.root as string,
       signature: '', // Will be set after signing
     }
+
+    // Add debug logging
+    console.log('IPFS data to upload:', {
+      amaId,
+      matchCount: matches.length,
+      metadata,
+      merkleRoot: merkleData.root,
+      dataSize: JSON.stringify(ipfsData).length,
+      sampleMatch: matches[0],
+    })
 
     // Upload to IPFS with retries
     let contentHash: string | null = null

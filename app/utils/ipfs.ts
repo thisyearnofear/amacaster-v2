@@ -102,45 +102,99 @@ export async function uploadMatchesToIPFS(
 
     // Create form data
     const formData = new FormData()
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+
+    // Prepare data for upload
+    const uploadData = {
+      ...data,
+      matches: data.matches.map((match) => ({
+        questionHash: match.questionHash,
+        answerHash: match.answerHash,
+        ranking: match.ranking,
+        questionContent: {
+          text: match.questionContent.text,
+          cast_id: match.questionContent.cast_id,
+          timestamp: match.questionContent.timestamp,
+          author: {
+            fid: parseInt(match.questionContent.author.fid.toString()),
+            username: match.questionContent.author.username,
+          },
+        },
+        answerContent: {
+          text: match.answerContent.text,
+          cast_id: match.answerContent.cast_id,
+          timestamp: match.answerContent.timestamp,
+          author: {
+            fid: parseInt(match.answerContent.author.fid.toString()),
+            username: match.answerContent.author.username,
+          },
+        },
+      })),
+    }
+
+    const blob = new Blob([JSON.stringify(uploadData)], {
+      type: 'application/json',
+    })
     formData.append('file', blob, 'matches.json')
 
     // Add metadata for better discoverability
     const metadata = {
-      name: `AMA_${data.amaId}_v2_${data.metadata.version}`,
+      name: `AMA_${data.amaId.slice(0, 8)}_matches`,
       keyvalues: {
         amaId: data.amaId,
         version: data.metadata.version,
-        version_type: 'v2',
         submitter: data.metadata.submitter,
-        submitter_fid: data.metadata.submitter_fid,
-        timestamp: data.metadata.timestamp,
-        ama_title: data.metadata.ama_title,
-        ama_host: data.metadata.ama_host,
         match_count: data.matches.length,
-        has_quality_signals: data.matches.some(
-          (m) => m.quality_signals !== undefined,
-        ),
-        focus_topics:
-          data.metadata.curation_criteria?.focus_topics?.join(',') || '',
-        merkle_root: data.merkle_root,
       },
     }
+
+    // Add debug logging
+    console.log('IPFS Upload Details:', {
+      fileSize: blob.size,
+      metadata,
+      formData: {
+        entries: Array.from(formData.entries()).map(([key]) => key),
+        file: blob.size,
+      },
+      sampleData: {
+        amaId: data.amaId,
+        matchCount: data.matches.length,
+        firstMatch: uploadData.matches[0],
+      },
+    })
+
     formData.append('pinataMetadata', JSON.stringify(metadata))
 
-    // Upload to IPFS via Pinata
-    const response = await axios.post<PinataResponse>(
-      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-          'Content-Type': 'multipart/form-data',
+    try {
+      // Upload to IPFS via Pinata
+      const response = await axios.post<PinataResponse>(
+        `${PINATA_API_URL}/pinning/pinFileToIPFS`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          maxBodyLength: Infinity,
         },
-      },
-    )
+      )
 
-    return response.data.IpfsHash
+      console.log('Pinata upload successful:', response.data)
+      return response.data.IpfsHash
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Pinata API Error:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers,
+          request: {
+            method: error.config?.method,
+            url: error.config?.url,
+          },
+        })
+      }
+      throw error
+    }
   } catch (error) {
     console.error('Error uploading to IPFS:', error)
     if (error instanceof Error) {
@@ -317,5 +371,44 @@ export async function fetchFromIPFS(contentHash: string) {
   } catch (error) {
     console.error('Error fetching from IPFS:', error)
     throw error
+  }
+}
+
+async function testPinataConnection(): Promise<boolean> {
+  try {
+    const testData = {
+      test: 'Hello World',
+      timestamp: Date.now(),
+    }
+    const formData = new FormData()
+    const blob = new Blob([JSON.stringify(testData)], {
+      type: 'application/json',
+    })
+    formData.append('file', blob, 'test.json')
+
+    const metadata = {
+      name: 'test_upload',
+      keyvalues: {
+        test: true,
+      },
+    }
+    formData.append('pinataMetadata', JSON.stringify(metadata))
+
+    const response = await axios.post<PinataResponse>(
+      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    )
+
+    console.log('Test upload successful:', response.data)
+    return true
+  } catch (error) {
+    console.error('Test upload failed:', error)
+    return false
   }
 }

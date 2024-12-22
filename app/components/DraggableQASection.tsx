@@ -147,8 +147,9 @@ export default function DraggableQASection({
         throw new Error('No matches to submit')
       }
 
-      // Filter out unmatched questions and answers
+      // Filter out unmatched questions and answers and limit to top 5
       const matches = localSecondTier
+        .slice(0, 5) // Only take first 5 pairs
         .map((question, index) => {
           const answer = localThirdTier[index]
           if (!answer) return []
@@ -168,10 +169,41 @@ export default function DraggableQASection({
                       .slice(2)
                       .padStart(64, '0')}` as `0x${string}`)
 
+              // Add debug logging
+              console.log('Question data:', {
+                text: question.text,
+                hash: question.hash,
+                author: question.author,
+                timestamp: question.timestamp,
+                authorFields: {
+                  fid: question.author.fid,
+                  fname: question.author.fname,
+                  username: question.author.fname, // Using fname as username
+                },
+              })
+
               const matchData = {
                 questionHash: paddedQuestionHash,
                 answerHash: paddedAnswerHash,
                 ranking: index,
+                questionContent: {
+                  text: question.text,
+                  cast_id: question.hash,
+                  timestamp: new Date(question.timestamp).getTime(),
+                  author: {
+                    fid: parseInt(question.author.fid.toString()),
+                    username: question.author.fname, // Using fname as username
+                  },
+                },
+                answerContent: {
+                  text: stackedAnswer.text,
+                  cast_id: stackedAnswer.hash,
+                  timestamp: new Date(stackedAnswer.timestamp).getTime(),
+                  author: {
+                    fid: parseInt(stackedAnswer.author.fid.toString()),
+                    username: stackedAnswer.author.fname, // Using fname as username
+                  },
+                },
               }
               const hash = keccak256(
                 encodeAbiParameters(
@@ -203,6 +235,24 @@ export default function DraggableQASection({
               questionHash: paddedQuestionHash,
               answerHash: paddedAnswerHash,
               ranking: index,
+              questionContent: {
+                text: question.text,
+                cast_id: question.hash,
+                timestamp: new Date(question.timestamp).getTime(),
+                author: {
+                  fid: parseInt(question.author.fid.toString()),
+                  username: question.author.fname, // Using fname as username
+                },
+              },
+              answerContent: {
+                text: answer.text,
+                cast_id: answer.hash,
+                timestamp: new Date(answer.timestamp).getTime(),
+                author: {
+                  fid: parseInt(answer.author.fid.toString()),
+                  username: answer.author.fname, // Using fname as username
+                },
+              },
             }
             const hash = keccak256(
               encodeAbiParameters(
@@ -222,6 +272,10 @@ export default function DraggableQASection({
 
       if (matches.length === 0) {
         throw new Error('No valid matches to submit')
+      }
+
+      if (matches.length > 5) {
+        matches.length = 5 // Ensure we only submit 5 matches even if more are constructed
       }
 
       const result = await submit(matches)
@@ -254,12 +308,22 @@ export default function DraggableQASection({
       }
     } catch (error) {
       console.error('Error in handleSubmit:', error)
+      let errorMessage = 'Failed to submit matches'
+      let detailMessage = 'Unknown error occurred'
+
+      if (error instanceof Error) {
+        if (error.message.includes('IPFS')) {
+          errorMessage = 'Failed to upload to IPFS'
+          detailMessage = 'Please try again in a few moments'
+        } else {
+          detailMessage = error.message
+        }
+      }
+
       toast.error(
         <div className="flex flex-col gap-1">
-          <div>Failed to submit matches</div>
-          <div className="text-xs text-gray-500">
-            {error instanceof Error ? error.message : 'Unknown error occurred'}
-          </div>
+          <div>{errorMessage}</div>
+          <div className="text-xs text-gray-500">{detailMessage}</div>
         </div>,
       )
     }
@@ -306,6 +370,24 @@ export default function DraggableQASection({
                 questionHash: paddedQuestionHash,
                 answerHash: paddedAnswerHash,
                 ranking: index,
+                questionContent: {
+                  text: question.text,
+                  cast_id: question.hash,
+                  timestamp: new Date(question.timestamp).getTime(),
+                  author: {
+                    fid: parseInt(question.author.fid.toString()),
+                    username: question.author.fname, // Using fname as username
+                  },
+                },
+                answerContent: {
+                  text: stackedAnswer.text,
+                  cast_id: stackedAnswer.hash,
+                  timestamp: new Date(stackedAnswer.timestamp).getTime(),
+                  author: {
+                    fid: parseInt(stackedAnswer.author.fid.toString()),
+                    username: stackedAnswer.author.fname, // Using fname as username
+                  },
+                },
               }
               // Generate the match hash using keccak256
               const hash = keccak256(
@@ -343,6 +425,24 @@ export default function DraggableQASection({
               questionHash: paddedQuestionHash,
               answerHash: paddedAnswerHash,
               ranking: index,
+              questionContent: {
+                text: question.text,
+                cast_id: question.hash,
+                timestamp: new Date(question.timestamp).getTime(),
+                author: {
+                  fid: parseInt(question.author.fid.toString()),
+                  username: question.author.fname, // Using fname as username
+                },
+              },
+              answerContent: {
+                text: answer.text,
+                cast_id: answer.hash,
+                timestamp: new Date(answer.timestamp).getTime(),
+                author: {
+                  fid: parseInt(answer.author.fid.toString()),
+                  username: answer.author.fname, // Using fname as username
+                },
+              },
             }
             // Generate the match hash using keccak256
             const hash = keccak256(
@@ -863,7 +963,7 @@ export default function DraggableQASection({
             <div className="numbered-band">
               <div
                 className={`numbered-band-text flex items-center justify-center w-8 h-8 rounded-full font-medium ${
-                  index < 20
+                  index < 5
                     ? 'bg-green-100 text-green-700'
                     : 'bg-gray-100 text-gray-700'
                 }`}
@@ -1092,7 +1192,7 @@ export default function DraggableQASection({
                 <div className="central-number-content flex flex-col items-center gap-2">
                   <div
                     className={`flex items-center justify-center w-8 h-8 rounded-full font-medium ${
-                      i < 20
+                      i < 5
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-700'
                     }`}
@@ -1223,9 +1323,16 @@ export default function DraggableQASection({
       if (submitError) {
         if (submitError.message.includes('IPFS')) {
           return {
-            text: 'Having trouble connecting to IPFS. Retrying...',
-            color: 'amber',
-            subText: 'Your matches are being saved. Please wait.',
+            text: 'Failed to upload to IPFS',
+            color: 'red',
+            subText: 'Please try again in a few moments',
+          }
+        }
+        if (submitError.message.includes('contract')) {
+          return {
+            text: 'Failed to submit to contract',
+            color: 'red',
+            subText: 'Please check your wallet and try again',
           }
         }
         return { text: `Error: ${submitError.message}`, color: 'red' }
@@ -1233,14 +1340,14 @@ export default function DraggableQASection({
       if (isSubmitting) {
         if (state.uploadState?.type === 'ipfs') {
           return {
-            text: `Uploading to IPFS (Attempt ${state.uploadState.attempt}/3)...`,
+            text: `Uploading matches to IPFS (${state.uploadState.attempt}/3)`,
             color: 'indigo',
-            subText: 'This might take a few moments',
+            subText: 'Saving your matches permanently...',
           }
         }
         if (state.uploadState?.type === 'contract') {
           return {
-            text: 'Submitting to Optimism...',
+            text: 'Submitting to Optimism',
             color: 'indigo',
             subText: 'Please confirm the transaction in your wallet',
           }
@@ -1257,9 +1364,10 @@ export default function DraggableQASection({
           color: 'green',
           subText: `Submitted ${timeAgo}`,
           link: state.submissionDetails?.ipfsUrl,
+          contractLink: state.submissionDetails?.transactionHash,
         }
       }
-      return { text: 'Ready to submit your matches?', color: 'gray' }
+      return { text: 'Ready to submit your top 5 matches?', color: 'gray' }
     }
 
     const status = getStatusMessage()
@@ -1337,12 +1445,12 @@ export default function DraggableQASection({
                   : !isCorrectNetwork
                   ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 cursor-pointer'
                   : isSubmitting
-                  ? 'bg-indigo-100 text-indigo-400'
+                  ? 'bg-indigo-500 text-white opacity-75'
                   : isSubmitted
-                  ? 'bg-green-100 text-green-600'
+                  ? 'bg-green-500 text-white'
                   : submitError
-                  ? 'bg-red-100 text-red-600'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                  : 'bg-indigo-500 text-white hover:bg-indigo-600'
               }`}
             >
               {!isLoggedIn
@@ -1353,15 +1461,15 @@ export default function DraggableQASection({
                 ? 'Switch Network'
                 : isSubmitting
                 ? state.uploadState?.type === 'ipfs'
-                  ? 'Uploading...'
+                  ? 'Uploading to IPFS...'
                   : state.uploadState?.type === 'contract'
-                  ? 'Confirming...'
+                  ? 'Confirm in Wallet...'
                   : 'Submitting...'
                 : isSubmitted
                 ? 'Submitted!'
                 : submitError
                 ? 'Try Again'
-                : 'Submit Matches'}
+                : 'Submit Top 5 Matches'}
             </button>
           </div>
         </div>

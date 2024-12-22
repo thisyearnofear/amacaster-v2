@@ -106,17 +106,84 @@ async function fetchUserSubmissions(fid: string): Promise<PinataRow[]> {
   }
 
   try {
-    // Construct metadata filter query for new format only
+    // Construct metadata filter query for new format
     const metadataFilter = {
       keyvalues: {
-        submitter_fid: {
+        fid: {
           value: fid,
           op: 'eq',
         },
-        version_type: {
-          value: 'v2',
-          op: 'eq',
+      },
+    }
+
+    console.log('Fetching with metadata filter:', metadataFilter)
+
+    // Fetch matches from Pinata with metadata filter
+    const response = await fetch(
+      `https://api.pinata.cloud/data/pinList?metadata=${JSON.stringify(
+        metadataFilter,
+      )}&pageLimit=100&status=pinned`,
+      {
+        headers: {
+          Authorization: `Bearer ${pinataJWT}`,
+          'Content-Type': 'application/json',
         },
+      },
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Pinata error response:', errorText)
+      throw new Error(`Failed to fetch from Pinata: ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log('Pinata response for FID', fid, ':', data)
+
+    if (!data.rows) {
+      console.log('No rows found in Pinata response')
+      return []
+    }
+
+    return data.rows.sort(
+      (a: PinataRow, b: PinataRow) =>
+        new Date(b.date_pinned).getTime() - new Date(a.date_pinned).getTime(),
+    )
+  } catch (error) {
+    console.error('Error fetching submissions:', error)
+    throw error
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { fid: string } },
+) {
+  try {
+    console.log('Fetching matches for FID:', params.fid)
+
+    const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT
+    if (!pinataJWT) {
+      throw new Error('Pinata JWT not configured')
+    }
+
+    // Try both old and new metadata formats
+    const metadataFilter = {
+      keyvalues: {
+        $or: [
+          {
+            fid: {
+              value: params.fid,
+              op: 'eq',
+            },
+          },
+          {
+            submitter_fid: {
+              value: params.fid,
+              op: 'eq',
+            },
+          },
+        ],
       },
     }
 
@@ -136,37 +203,58 @@ async function fetchUserSubmissions(fid: string): Promise<PinataRow[]> {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Pinata error response:', errorText)
-      throw new Error('Failed to fetch from Pinata')
+      throw new Error(`Failed to fetch from Pinata: ${errorText}`)
     }
 
     const data = await response.json()
-    console.log('Pinata response for FID', fid, ':', data)
+    console.log('Pinata response:', data)
 
-    return data.rows.sort(
+    if (!data.rows) {
+      console.log('No rows found in Pinata response')
+      return NextResponse.json([])
+    }
+
+    // Sort submissions by date (newest first)
+    const submissions = data.rows.sort(
       (a: PinataRow, b: PinataRow) =>
         new Date(b.date_pinned).getTime() - new Date(a.date_pinned).getTime(),
     )
-  } catch (error) {
-    console.error('Error fetching submissions:', error)
-    throw error
-  }
-}
 
-export async function GET(
-  request: Request,
-  { params }: { params: { fid: string } },
-) {
-  try {
-    console.log('Fetching matches for FID:', params.fid)
-    const submissions = await fetchUserSubmissions(params.fid)
-    console.log('Found submissions:', submissions)
     const matches: Match[] = []
+    const processedAmaIds = new Set<string>()
 
+    // Process submissions in chronological order (newest first)
     for (const submission of submissions) {
-      console.log('Processing submission:', submission)
-      const ipfsMatches = await fetchMatchesFromIPFS(submission.ipfs_pin_hash)
-      console.log('IPFS matches:', ipfsMatches)
-      matches.push(...ipfsMatches)
+      try {
+        console.log('Processing submission:', submission)
+        const ipfsMatches = await fetchMatchesFromIPFS(submission.ipfs_pin_hash)
+
+        // For each submission, add all matches from AMAs we haven't seen yet
+        for (const match of ipfsMatches) {
+          if (!processedAmaIds.has(match.contractId)) {
+            // Add all matches from this AMA submission
+            matches.push(
+              ...ipfsMatches.filter((m) => m.contractId === match.contractId),
+            )
+            processedAmaIds.add(match.contractId)
+            console.log(
+              'Added matches for AMA:',
+              match.contractId,
+              'from submission:',
+              submission.ipfs_pin_hash,
+            )
+          } else {
+            console.log(
+              'Skipping matches for AMA:',
+              match.contractId,
+              'already processed',
+            )
+          }
+        }
+      } catch (error) {
+        console.error('Error processing submission:', error)
+        // Continue with next submission
+      }
     }
 
     console.log('Total matches found:', matches.length)
@@ -174,7 +262,10 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET handler:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch matches' },
+      {
+        error:
+          error instanceof Error ? error.message : 'Failed to fetch matches',
+      },
       { status: 500 },
     )
   }

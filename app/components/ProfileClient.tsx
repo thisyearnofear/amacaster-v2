@@ -53,7 +53,11 @@ const ProfileHeader = ({ profile }: ProfileHeaderProps) => {
   // Find the Farcaster profile to get correct follower count
   const farcasterProfile = Array.isArray(profile)
     ? profile.find((p) => p.platform === 'farcaster')
-    : null
+    : profile
+
+  // Use web3bio API's social data for follower counts
+  const followerCount = farcasterProfile?.social?.follower || 0
+  const followingCount = farcasterProfile?.social?.following || 0
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
@@ -88,13 +92,13 @@ const ProfileHeader = ({ profile }: ProfileHeaderProps) => {
           <div className="flex gap-6 mt-4">
             <div>
               <span className="font-semibold text-gray-900">
-                {farcasterProfile?.social?.follower?.toLocaleString() || 0}
+                {followerCount.toLocaleString()}
               </span>
               <span className="text-gray-500 ml-1">Followers</span>
             </div>
             <div>
               <span className="font-semibold text-gray-900">
-                {farcasterProfile?.social?.following?.toLocaleString() || 0}
+                {followingCount.toLocaleString()}
               </span>
               <span className="text-gray-500 ml-1">Following</span>
             </div>
@@ -155,7 +159,7 @@ const FeaturedAMAs = () => {
           >
             <IconImage
               src={`https://res.cloudinary.com/dsneebaw0/image/upload/v1708031540/${ama.icon}`}
-              alt={`${ama.name}'s icon`}
+              alt={`${ama.name}'s profile picture`}
               className="w-8 h-8"
             />
             <div className="flex-1">
@@ -184,6 +188,21 @@ export default function ProfileClient({ fid }: { fid: string }) {
   const { profile, loading: isLoadingProfile } = useWeb3BioProfile(fid)
   const { data: matches = [], isLoading: isLoadingMatches } = useMatches(fid)
 
+  // Group matches by AMA and take only the latest submission for each
+  const latestMatches = matches.reduce((acc: Match[], match) => {
+    const existingIndex = acc.findIndex(
+      (m) => m.contractId === match.contractId,
+    )
+    if (existingIndex === -1) {
+      acc.push(match)
+    } else if (
+      new Date(match.timestamp) > new Date(acc[existingIndex].timestamp)
+    ) {
+      acc[existingIndex] = match
+    }
+    return acc
+  }, [])
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {isLoadingProfile || isLoadingMatches ? (
@@ -191,11 +210,11 @@ export default function ProfileClient({ fid }: { fid: string }) {
       ) : (
         <>
           <ProfileHeader profile={profile} />
-          <ProfileMetrics matches={matches} fid={fid} />
-          {matches.length > 0 ? (
-            <MatchHistory matches={matches} />
-          ) : (
+          <ProfileMetrics matches={latestMatches} fid={fid} />
+          {latestMatches.length === 0 ? (
             <EmptyState />
+          ) : (
+            <MatchHistory matches={latestMatches} />
           )}
           <FeaturedAMAs />
         </>
