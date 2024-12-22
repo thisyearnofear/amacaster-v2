@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-white relative`}>
         <Providers>
           <AuthContainer />
-          {children}
+          <main className="pt-[60px]">{children}</main>
         </Providers>
       </body>
     </html>

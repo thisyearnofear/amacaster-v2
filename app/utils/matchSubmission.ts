@@ -38,10 +38,29 @@ export class ValidationError extends MatchSubmissionError {
 }
 
 // Types for match submission
+export interface MatchContent {
+  text: string
+  cast_id: string
+  timestamp: number
+  author: {
+    fid: number
+    username: string
+  }
+}
+
 export interface Match {
   questionHash: `0x${string}`
   answerHash: `0x${string}`
   ranking: number
+  questionContent: MatchContent
+  answerContent: MatchContent
+  category?: string
+  tags?: string[]
+  quality_signals?: {
+    relevance_score?: number
+    engagement_score?: number
+    curator_notes?: string
+  }
   hash: `0x${string}`
 }
 
@@ -56,9 +75,35 @@ export interface SubmissionMetadata {
   timestamp: number
   version: number
   submitter: Address
+  submitter_fid: string
+  ama_title: string
+  ama_host: string
+  curation_criteria?: {
+    focus_topics?: string[]
+    quality_threshold?: number
+    curation_guidelines?: string
+  }
 }
 
 // Validation functions
+function validateMatchContent(
+  content: MatchContent,
+  type: 'question' | 'answer',
+): void {
+  if (!content.text?.trim()) {
+    throw new ValidationError(`Invalid ${type} text`)
+  }
+  if (!content.cast_id) {
+    throw new ValidationError(`Invalid ${type} cast ID`)
+  }
+  if (!content.timestamp || content.timestamp <= 0) {
+    throw new ValidationError(`Invalid ${type} timestamp`)
+  }
+  if (!content.author?.fid || !content.author?.username) {
+    throw new ValidationError(`Invalid ${type} author information`)
+  }
+}
+
 function validateMatch(match: Match): void {
   if (!match.questionHash || !match.questionHash.startsWith('0x')) {
     throw new ValidationError('Invalid question hash format')
@@ -68,6 +113,28 @@ function validateMatch(match: Match): void {
   }
   if (typeof match.ranking !== 'number' || match.ranking < 0) {
     throw new ValidationError('Invalid ranking value')
+  }
+  validateMatchContent(match.questionContent, 'question')
+  validateMatchContent(match.answerContent, 'answer')
+
+  if (match.quality_signals) {
+    const { relevance_score, engagement_score } = match.quality_signals
+    if (
+      relevance_score !== undefined &&
+      (relevance_score < 0 || relevance_score > 1)
+    ) {
+      throw new ValidationError(
+        'Invalid relevance score (must be between 0 and 1)',
+      )
+    }
+    if (
+      engagement_score !== undefined &&
+      (engagement_score < 0 || engagement_score > 1)
+    ) {
+      throw new ValidationError(
+        'Invalid engagement score (must be between 0 and 1)',
+      )
+    }
   }
 }
 
@@ -108,9 +175,9 @@ export async function submitMatches(
     const ipfsData: IPFSMatchData = {
       amaId,
       matches,
-      timestamp: metadata.timestamp,
-      version: metadata.version,
-      submitter: metadata.submitter,
+      metadata,
+      merkle_root: merkleData.root as string,
+      signature: '', // Will be set after signing
     }
 
     // Upload to IPFS with retries
@@ -153,6 +220,10 @@ export async function submitMatches(
       signer,
     )
     console.log('Data signed successfully')
+
+    // Update IPFS data with signature and re-upload
+    ipfsData.signature = signature
+    contentHash = await uploadMatchesToIPFS(ipfsData)
 
     return {
       contentHash: contentHash as `0x${string}`,
@@ -203,14 +274,16 @@ export async function getSubmission(
       ) as `0x${string}`,
     }))
 
+    // Ensure submitter is properly typed as an Ethereum address
+    const metadata: SubmissionMetadata = {
+      ...ipfsData.metadata,
+      submitter: ipfsData.metadata.submitter as Address,
+    }
+
     return {
       matches,
       merkleData,
-      metadata: {
-        timestamp: ipfsData.timestamp,
-        version: ipfsData.version,
-        submitter: ipfsData.submitter as Address,
-      },
+      metadata,
     }
   } catch (error) {
     if (error instanceof MatchSubmissionError) {

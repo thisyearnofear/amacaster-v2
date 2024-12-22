@@ -1,243 +1,197 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { time } from '@nomicfoundation/hardhat-network-helpers'
+import { loadFixture } from '@nomicfoundation/hardhat-toolbox/network-helpers'
 import { AMAContract } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 
-describe('AMAContract', () => {
-  let amaContract: AMAContract
-  let owner: SignerWithAddress
-  let user1: SignerWithAddress
-  let user2: SignerWithAddress
-  let user3: SignerWithAddress
-
-  // Test constants
-  const ONE_HOUR = 3600
-  const ONE_DAY = ONE_HOUR * 24
-  const QUALITY_PRECISION = 10000
-  const MIN_QUALITY_THRESHOLD = 7000
-  const BASE_COOLDOWN = ONE_HOUR
-
-  beforeEach(async () => {
-    ;[owner, user1, user2, user3] = await ethers.getSigners()
-
+describe('AMAContract', function () {
+  async function deployContractFixture() {
+    const [owner, user1, user2] = await ethers.getSigners()
     const AMAContract = await ethers.getContractFactory('AMAContract')
-    amaContract = (await AMAContract.deploy()) as AMAContract
+    const contract = await AMAContract.deploy()
+    await contract.waitForDeployment()
 
-    // Register FIDs for testing
-    await amaContract.connect(user1).registerFid(1)
-    await amaContract.connect(user2).registerFid(2)
-    await amaContract.connect(user3).registerFid(3)
-  })
+    return { contract, owner, user1, user2 }
+  }
 
-  describe('Anti-Spam Mechanisms', () => {
-    describe('Rate Limiting', () => {
-      let contractId: string
+  // Test data
+  const testAmaId =
+    '0x1234567890123456789012345678901234567890123456789012345678901234'
+  const testFid = 378
+  const testMatch = {
+    questionHash:
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    answerHash:
+      '0x2345678901234567890123456789012345678901234567890123456789012345',
+    ranking: 1,
+    questionContent: {
+      text: 'Test question?',
+      cast_id: 'cast_123',
+      timestamp: Math.floor(Date.now() / 1000),
+      author: {
+        fid: testFid,
+        username: 'testuser',
+      },
+    },
+    answerContent: {
+      text: 'Test answer',
+      cast_id: 'cast_456',
+      timestamp: Math.floor(Date.now() / 1000),
+      author: {
+        fid: testFid + 1,
+        username: 'answerer',
+      },
+    },
+    category: 'test',
+    tags: ['test', 'example'],
+    quality_signals: {
+      relevance_score: 0.8,
+      engagement_score: 0.7,
+      curator_notes: 'Good Q&A pair',
+    },
+  }
 
-      beforeEach(async () => {
-        // Create a standard test contract
-        const startTime = (await time.latest()) + ONE_HOUR
-        const endTime = startTime + ONE_DAY
+  const testMetadata = {
+    timestamp: Math.floor(Date.now() / 1000),
+    version: 1,
+    submitter_fid: testFid.toString(),
+    ama_title: 'Test AMA',
+    ama_host: 'Test Host',
+    curation_criteria: {
+      focus_topics: ['test'],
+      quality_threshold: 0.7,
+      curation_guidelines: 'Select good Q&As',
+    },
+  }
 
-        const tx = await amaContract
-          .connect(user1)
-          .submitContract(
-            'Rate Limit Test AMA',
-            'Test Description',
-            BigInt(startTime),
-            BigInt(endTime),
-            7000,
-            { value: ethers.parseEther('0.1') },
-          )
-        const receipt = await tx.wait()
-        if (!receipt) throw new Error('No receipt')
-
-        const event = receipt.logs.find((log) => {
-          if ('topics' in log) {
-            return (
-              log.topics[0] ===
-              amaContract.interface.getEvent('ContractSubmitted').topicHash
-            )
-          }
-          return false
-        })
-        if (!event?.topics[1]) throw new Error('No contract ID in event')
-        contractId = event.topics[1]
-      })
-
-      it('should enforce base cooldown for new users', async () => {
-        // First participation
-        await amaContract
-          .connect(user2)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-
-        // Try immediate second participation
-        await expect(
-          amaContract
-            .connect(user2)
-            .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)]),
-        ).to.be.revertedWith('Rate limited')
-
-        // Wait just under base cooldown
-        await time.increase(BASE_COOLDOWN - 60)
-        await expect(
-          amaContract
-            .connect(user2)
-            .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)]),
-        ).to.be.revertedWith('Rate limited')
-
-        // Wait remaining time
-        await time.increase(60)
-        await amaContract
-          .connect(user2)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-      })
-
-      it('should reduce cooldown for high reputation users', async () => {
-        // Build up reputation
-        for (let i = 0; i < 5; i++) {
-          await amaContract
-            .connect(user2)
-            .participate(
-              contractId,
-              [ethers.randomBytes(32), ethers.randomBytes(32)],
-              [BigInt(1), BigInt(2)],
-            )
-          await time.increase(BASE_COOLDOWN)
-        }
-
-        // Get current reputation
-        const reputation = await amaContract.getUserReputation(
-          await user2.getAddress(),
-        )
-        expect(reputation.effectiveScore).to.be.gt(5000)
-
-        // Test reduced cooldown
-        await amaContract
-          .connect(user2)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-
-        // Wait reduced cooldown time
-        await time.increase(BASE_COOLDOWN / 2)
-        await amaContract
-          .connect(user2)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-      })
-
-      it('should handle multiple users with different cooldowns', async () => {
-        // User2 builds reputation
-        for (let i = 0; i < 5; i++) {
-          await amaContract
-            .connect(user2)
-            .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-          await time.increase(BASE_COOLDOWN)
-        }
-
-        // User3 is new
-        await amaContract
-          .connect(user3)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-
-        // Wait half base cooldown
-        await time.increase(BASE_COOLDOWN / 2)
-
-        // User2 should be able to participate again
-        await amaContract
-          .connect(user2)
-          .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)])
-
-        // User3 should still be rate limited
-        await expect(
-          amaContract
-            .connect(user3)
-            .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)]),
-        ).to.be.revertedWith('Rate limited')
-      })
+  describe('Registration', function () {
+    it('Should allow users to register their FID', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+      await expect(contract.connect(user1).registerFid(testFid))
+        .to.emit(contract, 'FidRegistered')
+        .withArgs(user1.address, testFid)
     })
 
-    describe('Quality Thresholds', () => {
-      it('should enforce minimum quality score for participation', async () => {
-        // Create a contract with high quality threshold
-        const startTime = (await time.latest()) + ONE_HOUR
-        const endTime = startTime + ONE_DAY
+    it('Should not allow duplicate FID registration', async function () {
+      const { contract, user1, user2 } = await loadFixture(
+        deployContractFixture,
+      )
+      await contract.connect(user1).registerFid(testFid)
+      await expect(
+        contract.connect(user2).registerFid(testFid),
+      ).to.be.revertedWith('FID already registered')
+    })
+  })
 
-        const tx = await amaContract.connect(user1).submitContract(
-          'High Quality AMA',
-          'Test Description',
-          BigInt(startTime),
-          BigInt(endTime),
-          9000, // High quality threshold
-          { value: ethers.parseEther('0.1') },
-        )
-        const receipt = await tx.wait()
-        if (!receipt) throw new Error('No receipt')
+  describe('Contract Submission', function () {
+    it('Should allow registered users to submit contracts', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+      await contract.connect(user1).registerFid(testFid)
 
-        const event = receipt.logs.find((log) => {
-          if ('topics' in log) {
-            return (
-              log.topics[0] ===
-              amaContract.interface.getEvent('ContractSubmitted').topicHash
-            )
-          }
-          return false
-        })
-        if (!event?.topics[1]) throw new Error('No contract ID in event')
-        const contractId = event.topics[1]
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
 
-        // New user with no reputation should be rejected
-        await expect(
-          amaContract
-            .connect(user2)
-            .participate(contractId, [ethers.randomBytes(32)], [BigInt(1)]),
-        ).to.be.revertedWith('Insufficient quality score')
-      })
+      await expect(
+        contract.connect(user1).submitContract(testAmaId, merkleRoot, ipfsHash),
+      )
+        .to.emit(contract, 'ContractSubmitted')
+        .withArgs(user1.address, testAmaId, merkleRoot, ipfsHash)
+    })
 
-      it('should maintain quality ratio in participation metrics', async () => {
-        // Create a contract
-        const startTime = (await time.latest()) + ONE_HOUR
-        const endTime = startTime + ONE_DAY
+    it('Should not allow unregistered users to submit contracts', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
 
-        const tx = await amaContract
-          .connect(user1)
-          .submitContract(
-            'Test AMA',
-            'Test Description',
-            BigInt(startTime),
-            BigInt(endTime),
-            7000,
-            { value: ethers.parseEther('0.1') },
-          )
-        const receipt = await tx.wait()
-        if (!receipt) throw new Error('No receipt')
+      await expect(
+        contract.connect(user1).submitContract(testAmaId, merkleRoot, ipfsHash),
+      ).to.be.revertedWith('FID not registered')
+    })
+  })
 
-        const event = receipt.logs.find((log) => {
-          if ('topics' in log) {
-            return (
-              log.topics[0] ===
-              amaContract.interface.getEvent('ContractSubmitted').topicHash
-            )
-          }
-          return false
-        })
-        if (!event?.topics[1]) throw new Error('No contract ID in event')
-        const contractId = event.topics[1]
+  describe('Contract Verification', function () {
+    it('Should correctly verify submitted contracts', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+      await contract.connect(user1).registerFid(testFid)
 
-        // Participate with good matches
-        await amaContract
-          .connect(user2)
-          .participate(
-            contractId,
-            [ethers.randomBytes(32), ethers.randomBytes(32)],
-            [BigInt(1), BigInt(2)],
-          )
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
 
-        // Check participation metrics
-        const metrics = await amaContract.contractParticipation(
-          contractId,
-          await user2.getAddress(),
-        )
-        expect(metrics.qualityRatio).to.be.gte(MIN_QUALITY_THRESHOLD)
-      })
+      await contract
+        .connect(user1)
+        .submitContract(testAmaId, merkleRoot, ipfsHash)
+
+      const submittedContract = await contract.getContract(testAmaId)
+      expect(submittedContract.merkleRoot).to.equal(merkleRoot)
+      expect(submittedContract.ipfsHash).to.equal(ipfsHash)
+    })
+
+    it('Should return correct user contracts', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+      await contract.connect(user1).registerFid(testFid)
+
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
+
+      await contract
+        .connect(user1)
+        .submitContract(testAmaId, merkleRoot, ipfsHash)
+
+      const userContracts = await contract.getUserContracts(testFid)
+      expect(userContracts).to.include(testAmaId)
+    })
+  })
+
+  describe('Participation', function () {
+    it('Should allow users to participate in contracts', async function () {
+      const { contract, user1, user2 } = await loadFixture(
+        deployContractFixture,
+      )
+      await contract.connect(user1).registerFid(testFid)
+
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
+
+      await contract
+        .connect(user1)
+        .submitContract(testAmaId, merkleRoot, ipfsHash)
+
+      await expect(contract.connect(user2).participate(testAmaId))
+        .to.emit(contract, 'UserParticipated')
+        .withArgs(user2.address, testAmaId)
+    })
+
+    it('Should track participation correctly', async function () {
+      const { contract, user1, user2 } = await loadFixture(
+        deployContractFixture,
+      )
+      await contract.connect(user1).registerFid(testFid)
+
+      const merkleRoot =
+        '0x1234567890123456789012345678901234567890123456789012345678901234'
+      const ipfsHash =
+        '0x2345678901234567890123456789012345678901234567890123456789012345'
+
+      await contract
+        .connect(user1)
+        .submitContract(testAmaId, merkleRoot, ipfsHash)
+      await contract.connect(user2).participate(testAmaId)
+
+      const hasParticipated = await contract.hasParticipated(
+        user2.address,
+        testAmaId,
+      )
+      expect(hasParticipated).to.be.true
     })
   })
 })

@@ -5,6 +5,7 @@ import { getNeynarClient } from '../../lib/neynarClient'
 import DraggableQASection, {
   isAnswerStack,
 } from '../components/DraggableQASection'
+import { QADiscoveryBar } from '../components/QADiscoveryBar'
 import type { Cast, Author } from '../types'
 import type { Cast as NeynarCast } from '../../lib/neynarClient'
 import type { AnswerEntry, AnswerStack } from '../components/DraggableQASection'
@@ -60,7 +61,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [mainCast, setMainCast] = useState<any>(null)
   const [secondTier, setSecondTier] = useState<Cast[]>([])
-  const [thirdTier, setThirdTier] = useState<Cast[]>([])
+  const [thirdTier, setThirdTier] = useState<AnswerEntry[]>([])
   const [amaUser, setAmaUser] = useState<Author | null>(null)
   const [hostUser, setHostUser] = useState<Author | null>(null)
   const [guestUser, setGuestUser] = useState<Author | null>(null)
@@ -145,7 +146,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
 
         // Separate responses into second and third tier based on AMA user
         const secondTierResponses: Cast[] = []
-        const thirdTierResponses: Cast[] = []
+        const thirdTierResponses: AnswerEntry[] = []
 
         casts.forEach((cast) => {
           if (cast.hash === fetchedMainCast.hash) return // Skip the main cast
@@ -157,7 +158,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
             (fetchedAmaUser.fname && cast.author.fname === fetchedAmaUser.fname)
 
           if (isFromAMAUser) {
-            thirdTierResponses.push(cast)
+            thirdTierResponses.push(cast as AnswerEntry)
           } else if (!cast.parent_hash) {
             secondTierResponses.push(cast)
           }
@@ -170,11 +171,18 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
               new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
           ),
         )
+
+        // Sort third tier by the timestamp of the first answer in each stack
         setThirdTier(
-          thirdTierResponses.sort(
-            (a, b) =>
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-          ),
+          thirdTierResponses.sort((a, b) => {
+            const aTimestamp = isAnswerStack(a)
+              ? new Date(a.answers[0].timestamp).getTime()
+              : new Date(a.timestamp).getTime()
+            const bTimestamp = isAnswerStack(b)
+              ? new Date(b.answers[0].timestamp).getTime()
+              : new Date(b.timestamp).getTime()
+            return aTimestamp - bTimestamp
+          }),
         )
       } catch (err: unknown) {
         console.error('Detailed error in AMA page:', err)
@@ -294,38 +302,33 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         </div>
       </div>
 
-      {/* Q&A Section */}
+      {/* Main Content */}
       <DraggableQASection
         secondTier={secondTier}
         thirdTier={thirdTier}
         isAdmin={isAdmin}
+        onOrderChange={(newSecondTier: Cast[], newThirdTier: AnswerEntry[]) => {
+          setSecondTier(newSecondTier)
+          setThirdTier(newThirdTier)
+        }}
         neynarUser={neynarUser}
-        onOrderChange={async (newSecondTier, newThirdTier) => {
-          if (!isAdmin) return
+      />
 
-          try {
-            const response = await fetch('/api/save-order', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                castHash: mainCast.hash,
-                order: {
-                  secondTier: newSecondTier.map((cast) => cast.hash),
-                  thirdTier: newThirdTier.map((entry) =>
-                    isAnswerStack(entry) ? entry.answers[0].hash : entry.hash,
-                  ),
-                },
-              }),
-            })
-
-            if (!response.ok) {
-              console.error('Failed to save order')
-            }
-          } catch (error) {
-            console.error('Error saving order:', error)
-          }
+      {/* QA Discovery Bar */}
+      <QADiscoveryBar
+        amaId={mainCast.thread_hash}
+        currentMatches={[]}
+        onMatchApply={(matches) => {
+          // TODO: Implement match application logic
+          console.log('Applying matches:', matches)
+        }}
+        onSuccess={() => {
+          // TODO: Handle success
+          console.log('Successfully submitted matches')
+        }}
+        onError={(error) => {
+          console.error('Error:', error)
+          // TODO: Handle error
         }}
       />
     </div>

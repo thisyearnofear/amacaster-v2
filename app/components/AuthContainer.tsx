@@ -18,8 +18,8 @@ export function AuthContainer() {
   }, [])
 
   return (
-    <div className="fixed top-0 right-0 flex items-center gap-4 p-4 z-[100] bg-white/80 backdrop-blur-sm shadow-sm">
-      <div className="flex items-center gap-4">
+    <div className="w-full bg-white border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 py-2 flex justify-center items-center gap-4">
         <ConnectButton />
         <SignInWithNeynar />
       </div>

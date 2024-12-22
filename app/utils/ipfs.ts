@@ -7,16 +7,55 @@ export interface IPFSMatchData {
     questionHash: string
     answerHash: string
     ranking: number
+    // Add actual content
+    questionContent: {
+      text: string
+      cast_id: string
+      timestamp: number
+      author: {
+        fid: number
+        username: string
+      }
+    }
+    answerContent: {
+      text: string
+      cast_id: string
+      timestamp: number
+      author: {
+        fid: number
+        username: string
+      }
+    }
+    // Add metadata
+    category?: string
+    tags?: string[]
+    quality_signals?: {
+      relevance_score?: number
+      engagement_score?: number
+      curator_notes?: string
+    }
   }[]
-  timestamp: number
-  version: number
-  submitter: string
+  metadata: {
+    timestamp: number
+    version: number
+    submitter: string
+    submitter_fid: string
+    ama_title: string
+    ama_host: string
+    curation_criteria?: {
+      focus_topics?: string[]
+      quality_threshold?: number
+      curation_guidelines?: string
+    }
+  }
+  merkle_root: string
+  signature: string
 }
 
 interface PinataMetadata {
   name: string
   keyvalues: {
-    [key: string]: string
+    [key: string]: string | number | boolean
   }
 }
 
@@ -55,7 +94,8 @@ export async function uploadMatchesToIPFS(
     if (
       !data.amaId ||
       !Array.isArray(data.matches) ||
-      data.matches.length === 0
+      data.matches.length === 0 ||
+      !data.metadata
     ) {
       throw new Error('Invalid match data format')
     }
@@ -65,14 +105,25 @@ export async function uploadMatchesToIPFS(
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
     formData.append('file', blob, 'matches.json')
 
-    // Add metadata
+    // Add metadata for better discoverability
     const metadata = {
-      name: `AMA_${data.amaId}_v${data.version}`,
+      name: `AMA_${data.amaId}_v2_${data.metadata.version}`,
       keyvalues: {
         amaId: data.amaId,
-        version: data.version.toString(),
-        submitter: data.submitter,
-        timestamp: data.timestamp.toString(),
+        version: data.metadata.version,
+        version_type: 'v2',
+        submitter: data.metadata.submitter,
+        submitter_fid: data.metadata.submitter_fid,
+        timestamp: data.metadata.timestamp,
+        ama_title: data.metadata.ama_title,
+        ama_host: data.metadata.ama_host,
+        match_count: data.matches.length,
+        has_quality_signals: data.matches.some(
+          (m) => m.quality_signals !== undefined,
+        ),
+        focus_topics:
+          data.metadata.curation_criteria?.focus_topics?.join(',') || '',
+        merkle_root: data.merkle_root,
       },
     }
     formData.append('pinataMetadata', JSON.stringify(metadata))
@@ -136,14 +187,40 @@ function isValidIPFSMatchData(data: any): data is IPFSMatchData {
     typeof data === 'object' &&
     typeof data.amaId === 'string' &&
     Array.isArray(data.matches) &&
-    typeof data.timestamp === 'number' &&
-    typeof data.version === 'number' &&
-    typeof data.submitter === 'string' &&
+    typeof data.metadata === 'object' &&
+    typeof data.metadata.timestamp === 'number' &&
+    typeof data.metadata.version === 'number' &&
+    typeof data.metadata.submitter === 'string' &&
+    typeof data.metadata.submitter_fid === 'string' &&
+    typeof data.metadata.ama_title === 'string' &&
+    typeof data.metadata.ama_host === 'string' &&
+    typeof data.merkle_root === 'string' &&
+    typeof data.signature === 'string' &&
     data.matches.every(
       (match: any) =>
         typeof match.questionHash === 'string' &&
         typeof match.answerHash === 'string' &&
-        typeof match.ranking === 'number',
+        typeof match.ranking === 'number' &&
+        typeof match.questionContent === 'object' &&
+        typeof match.questionContent.text === 'string' &&
+        typeof match.questionContent.cast_id === 'string' &&
+        typeof match.questionContent.timestamp === 'number' &&
+        typeof match.questionContent.author === 'object' &&
+        typeof match.questionContent.author.fid === 'number' &&
+        typeof match.questionContent.author.username === 'string' &&
+        typeof match.answerContent === 'object' &&
+        typeof match.answerContent.text === 'string' &&
+        typeof match.answerContent.cast_id === 'string' &&
+        typeof match.answerContent.timestamp === 'number' &&
+        typeof match.answerContent.author === 'object' &&
+        typeof match.answerContent.author.fid === 'number' &&
+        typeof match.answerContent.author.username === 'string' &&
+        typeof match.category === 'string' &&
+        typeof match.tags === 'object' &&
+        typeof match.quality_signals === 'object' &&
+        typeof match.quality_signals.relevance_score === 'number' &&
+        typeof match.quality_signals.engagement_score === 'number' &&
+        typeof match.quality_signals.curator_notes === 'string',
     )
   )
 }

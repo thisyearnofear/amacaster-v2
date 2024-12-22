@@ -93,6 +93,14 @@ export function useMatchSubmission(amaId: string) {
           timestamp: Math.floor(timestamp / 1000),
           version: 0,
           submitter: address || 'anonymous',
+          submitter_fid: '', // Will be populated when actually submitting
+          ama_title: amaId, // Use amaId as title for draft
+          ama_host: '', // Will be populated when actually submitting
+          curation_criteria: {
+            focus_topics: [],
+            quality_threshold: 0.7,
+            curation_guidelines: '',
+          },
         }
 
         // Save to local storage
@@ -166,6 +174,14 @@ export function useMatchSubmission(amaId: string) {
           timestamp: Math.floor(Date.now() / 1000),
           version: 0,
           submitter: address,
+          submitter_fid: '', // Should be populated from user's profile
+          ama_title: amaId, // Use amaId as title
+          ama_host: '', // Should be populated from AMA details
+          curation_criteria: {
+            focus_topics: [],
+            quality_threshold: 0.7,
+            curation_guidelines: 'Select high-quality, relevant Q&As',
+          },
         }
 
         // Submit matches to IPFS and get merkle data
