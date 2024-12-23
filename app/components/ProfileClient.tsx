@@ -180,7 +180,7 @@ const FeaturedAMAs = () => {
 
 const EmptyState = () => (
   <div className="text-center py-12 bg-white rounded-lg shadow-sm mb-8">
-    <p className="text-gray-500">No q&a's here ... yet</p>
+    <p className="text-gray-500">No q&amp;a&apos;s here ... yet</p>
   </div>
 )
 

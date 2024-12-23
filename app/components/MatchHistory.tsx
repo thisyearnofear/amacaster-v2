@@ -215,7 +215,7 @@ export function MatchHistory({ matches }: MatchHistoryProps) {
                 </div>
                 {match.quality_signals.curator_notes && (
                   <p className="mt-2 text-sm text-gray-700 italic">
-                    "{match.quality_signals.curator_notes}"
+                    &ldquo;{match.quality_signals.curator_notes}&rdquo;
                   </p>
                 )}
               </div>
@@ -228,6 +228,14 @@ export function MatchHistory({ matches }: MatchHistoryProps) {
                 {match.contractId.slice(-4)}
               </div>
               <div>Rank: {match.rankings[0] + 1}</div>
+            </div>
+
+            {/* Question and Answer Quotes */}
+            <div className="text-sm text-gray-500">
+              &ldquo;{match.question.text}&rdquo;
+            </div>
+            <div className="text-sm text-gray-500">
+              &ldquo;{match.answer.text}&rdquo;
             </div>
           </div>
         ))}

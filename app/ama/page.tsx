@@ -5,13 +5,16 @@ import { getNeynarClient } from '../../lib/neynarClient'
 import DraggableQASection, {
   isAnswerStack,
 } from '../components/DraggableQASection'
-import { QADiscoveryBar } from '../components/QADiscoveryBar'
 import type { Cast, Author } from '../types'
 import type { Cast as NeynarCast } from '../../lib/neynarClient'
 import type { AnswerEntry, AnswerStack } from '../components/DraggableQASection'
 import Image from 'next/image'
 import { useNeynarUser } from '../hooks/useNeynarUser'
 import Link from 'next/link'
+import { useAMAContract } from '../hooks/useAMAContract'
+import { useMatches } from '../hooks/useMatches'
+import { useMatchSubmission } from '../hooks/useMatchSubmission'
+import { useAccount } from 'wagmi'
 
 const DEFAULT_AVATAR = '/default-avatar.png'
 
@@ -296,34 +299,21 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
       </div>
 
       {/* Main Content */}
-      <DraggableQASection
-        secondTier={secondTier}
-        thirdTier={thirdTier}
-        isAdmin={isAdmin}
-        onOrderChange={(newSecondTier: Cast[], newThirdTier: AnswerEntry[]) => {
-          setSecondTier(newSecondTier)
-          setThirdTier(newThirdTier)
-        }}
-        neynarUser={neynarUser}
-      />
-
-      {/* QA Discovery Bar */}
-      <QADiscoveryBar
-        amaId={mainCast.thread_hash}
-        currentMatches={[]}
-        onMatchApply={(matches) => {
-          // TODO: Implement match application logic
-          console.log('Applying matches:', matches)
-        }}
-        onSuccess={() => {
-          // TODO: Handle success
-          console.log('Successfully submitted matches')
-        }}
-        onError={(error) => {
-          console.error('Error:', error)
-          // TODO: Handle error
-        }}
-      />
+      <div className="flex flex-col gap-4">
+        <DraggableQASection
+          secondTier={secondTier}
+          thirdTier={thirdTier}
+          isAdmin={isAdmin}
+          onOrderChange={(
+            newSecondTier: Cast[],
+            newThirdTier: AnswerEntry[],
+          ) => {
+            setSecondTier(newSecondTier)
+            setThirdTier(newThirdTier)
+          }}
+          neynarUser={neynarUser}
+        />
+      </div>
     </div>
   )
 }

@@ -2,6 +2,25 @@
 
 A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Farcaster social features with blockchain-based verification.
 
+## Core Features
+
+1. **AMA Discovery & Curation**
+
+   - Browse featured AMAs from prominent Web3 figures
+   - View curated Q&A matches ranked by usefulness
+   - Stack multiple answers for comprehensive insights
+
+2. **Profile Integration**
+
+   - Farcaster profile integration with web3.bio data
+   - View user's Q&A history and contributions
+   - Track engagement metrics and match history
+
+3. **Match Submission**
+   - Submit top 5 most useful Q&As from AMAs
+   - Rank matches by usefulness
+   - Support for multiple answers per question
+
 ## Architecture
 
 ### Storage Strategy
@@ -29,6 +48,7 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - Next.js application
    - RainbowKit for wallet connection
    - Farcaster integration for social features
+   - Web3.bio integration for profile data
 
 ## Getting Started
 
@@ -38,6 +58,7 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
 - Yarn or npm
 - Optimism Sepolia testnet access
 - Pinata API credentials
+- Neynar API key for Farcaster integration
 
 ### Environment Setup
 
@@ -50,6 +71,7 @@ NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt
 NEXT_PUBLIC_PINATA_GATEWAY=your_gateway_url
 NEXT_PUBLIC_AMA_CONTRACT_ADDRESS=contract_address
 NEXT_PUBLIC_CHAIN_ID=11155420  # Optimism Sepolia
+NEXT_PUBLIC_NEYNAR_API_KEY=your_neynar_key
 ```
 
 ### Installation

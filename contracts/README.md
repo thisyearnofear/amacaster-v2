@@ -2,6 +2,28 @@
 
 This directory contains the smart contracts for the Amacaster platform, deployed on Optimism Sepolia testnet.
 
+## Core Features
+
+1. **Match Submission**
+
+   - Submit and verify Q&A matches
+   - Support for multiple answers per question
+   - Ranking system for match usefulness
+   - Efficient batch processing
+
+2. **Profile Management**
+
+   - User profile integration
+   - Match history tracking
+   - Engagement metrics
+   - Farcaster integration
+
+3. **Data Verification**
+   - Merkle tree verification for matches
+   - IPFS content integrity
+   - Signature validation
+   - State management
+
 ## Architecture Overview
 
 ### Gas-Optimized Storage Strategy
@@ -70,6 +92,7 @@ This directory contains the smart contracts for the Amacaster platform, deployed
 - Node.js 16+
 - Hardhat
 - Pinata API credentials
+- Neynar API key
 
 ### Setup
 
@@ -84,6 +107,7 @@ cp .env.example .env
 PINATA_JWT=your_pinata_jwt
 PINATA_GATEWAY=your_gateway_url
 PRIVATE_KEY=your_deployer_private_key
+NEYNAR_API_KEY=your_neynar_key
 ```
 
 ### Testing
@@ -110,12 +134,12 @@ yarn verify:optimism
 
 ### AMAMatcher
 
-- **Draft/Finalize System**
+- **Match Management**
 
-  - Save work in progress
-  - Version control
-  - State management
-  - History tracking
+  - Submit and verify Q&A matches
+  - Support multiple answers per question
+  - Rank matches by usefulness
+  - Track match history
 
 - **Gas Optimization**
 
