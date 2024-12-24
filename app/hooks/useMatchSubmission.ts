@@ -1,23 +1,12 @@
-import { useState, useCallback, useEffect } from 'react'
-import {
-  useAccount,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from 'wagmi'
-import { CONTRACTS } from '../config/contracts'
-import { AMA_MATCHER_ABI } from '../config/abis'
-import { keccak256, type Hash } from 'viem'
-import {
-  submitMatches,
-  type Match,
-  type SubmissionResult,
-  type SubmissionMetadata,
-} from '../utils/matchSubmission'
+import { useState, useCallback } from 'react'
+import { uploadMatchesToIPFS } from '../utils/ipfs'
+import { useIPCM } from './useIPCM'
+import { useAccount } from 'wagmi'
+import type { Match } from '../utils/matchSubmission'
 
 interface SubmissionState {
   isDraft: boolean
   isSubmitted: boolean
-  lastSavedAt?: number
   lastSubmittedAt?: number
   uploadState?: {
     type: 'ipfs' | 'contract'
@@ -29,257 +18,103 @@ interface SubmissionState {
   }
 }
 
-const DRAFT_STORAGE_KEY = 'amacaster_drafts'
-
-interface StoredDraft {
-  matches: Match[]
-  lastSavedAt: number
-  metadata: Omit<SubmissionMetadata, 'submitter'> & {
-    submitter: string
-  }
-}
-
-interface DraftStorage {
-  [amaId: string]: StoredDraft
-}
-
 export function useMatchSubmission(amaId: string) {
-  const { isConnected, address } = useAccount()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const [hash, setHash] = useState<Hash | undefined>(undefined)
+  const { address } = useAccount()
   const [state, setState] = useState<SubmissionState>({
     isDraft: true,
     isSubmitted: false,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
   const [currentSubmission, setCurrentSubmission] = useState<Match[]>([])
-
-  const { writeContract, data } = useWriteContract()
-
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({
-    hash,
-  })
-
-  // Load draft from local storage on mount
-  useEffect(() => {
-    if (amaId) {
-      try {
-        const storedDrafts = JSON.parse(
-          localStorage.getItem(DRAFT_STORAGE_KEY) || '{}',
-        ) as DraftStorage
-        const draft = storedDrafts[amaId]
-        if (draft) {
-          setCurrentSubmission(draft.matches)
-          setState((prev) => ({
-            ...prev,
-            isDraft: true,
-            lastSavedAt: draft.lastSavedAt,
-          }))
-        }
-      } catch (err) {
-        console.error('Error loading draft:', err)
-      }
-    }
-  }, [amaId])
-
-  // Save draft to local storage
-  const saveDraft = useCallback(
-    async (matches: Match[]) => {
-      if (!amaId) return
-
-      try {
-        const timestamp = Date.now()
-        const metadata = {
-          timestamp: Math.floor(timestamp / 1000),
-          version: 0,
-          submitter: address || 'anonymous',
-          submitter_fid: '', // Will be populated when actually submitting
-          ama_title: amaId, // Use amaId as title for draft
-          ama_host: '', // Will be populated when actually submitting
-          curation_criteria: {
-            focus_topics: [],
-            quality_threshold: 0.7,
-            curation_guidelines: '',
-          },
-        }
-
-        // Save to local storage
-        const storedDrafts = JSON.parse(
-          localStorage.getItem(DRAFT_STORAGE_KEY) || '{}',
-        ) as DraftStorage
-        storedDrafts[amaId] = {
-          matches,
-          lastSavedAt: timestamp,
-          metadata,
-        }
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(storedDrafts))
-
-        setCurrentSubmission(matches)
-        setState((prev) => ({
-          ...prev,
-          isDraft: true,
-          lastSavedAt: timestamp,
-        }))
-
-        return timestamp
-      } catch (err) {
-        console.error('Error saving draft:', err)
-        throw err
-      }
-    },
-    [amaId, address],
-  )
-
-  // Delete draft from local storage
-  const deleteDraft = useCallback(() => {
-    if (!amaId) return
-
-    try {
-      const storedDrafts = JSON.parse(
-        localStorage.getItem(DRAFT_STORAGE_KEY) || '{}',
-      ) as DraftStorage
-      delete storedDrafts[amaId]
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(storedDrafts))
-
-      setCurrentSubmission([])
-      setState((prev) => ({
-        ...prev,
-        isDraft: true,
-        lastSavedAt: undefined,
-      }))
-    } catch (err) {
-      console.error('Error deleting draft:', err)
-      throw err
-    }
-  }, [amaId])
+  const { updateIPFSMapping, isUpdating } = useIPCM()
 
   const submit = useCallback(
     async (matches: Match[]) => {
-      if (!isConnected || !address) {
-        throw new Error('Wallet not connected')
-      }
+      if (isSubmitting || isUpdating || !address) return
+      setIsSubmitting(true)
+      setError(null)
 
       try {
-        setIsSubmitting(true)
-        setError(null)
-        setCurrentSubmission(matches)
-
-        // Convert AMA ID to bytes32
-        const amaIdHash = keccak256(
-          new TextEncoder().encode(amaId),
-        ) as `0x${string}`
-
-        // Prepare metadata
-        const metadata: SubmissionMetadata = {
-          timestamp: Math.floor(Date.now() / 1000),
-          version: 0,
-          submitter: address,
-          submitter_fid: '', // Should be populated from user's profile
-          ama_title: amaId, // Use amaId as title
-          ama_host: '', // Should be populated from AMA details
-          curation_criteria: {
-            focus_topics: [],
-            quality_threshold: 0.7,
-            curation_guidelines: 'Select high-quality, relevant Q&As',
-          },
-        }
-
-        // Submit matches to IPFS and get merkle data
-        console.log('Preparing submission data...')
         setState((prev) => ({
           ...prev,
           uploadState: { type: 'ipfs', attempt: 1 },
         }))
 
-        const submissionResult = await submitMatches(
-          amaId,
-          matches,
-          metadata,
+        // Upload to IPFS and update IPCM mapping
+        const contentHash = await uploadMatchesToIPFS(
           {
-            signMessage: async (message) => {
-              const signature = await window.ethereum.request({
-                method: 'personal_sign',
-                params: [message, address],
-              })
-              return signature as string
+            amaId,
+            matches,
+            metadata: {
+              version: 1,
+              submitter: address,
+              timestamp: Math.floor(Date.now() / 1000),
+              submitter_fid: '', // Optional Farcaster ID - to be populated when Farcaster auth is implemented
+              ama_title: amaId,
+              ama_host: '', // Optional
+              curation_criteria: {
+                focus_topics: [],
+                quality_threshold: 0.7,
+                curation_guidelines: 'Select high-quality, relevant Q&As',
+              },
             },
           },
-          3,
-          (attempt) => {
-            setState((prev) => ({
-              ...prev,
-              uploadState: { type: 'ipfs', attempt },
-            }))
-          },
+          updateIPFSMapping,
         )
-
-        console.log('Submitting to contract:', {
-          amaIdHash,
-          contentHash: submissionResult.contentHash,
-          merkleRoot: submissionResult.merkleRoot,
-          signature: submissionResult.signature,
-        })
-
-        // Submit to contract
-        if (!writeContract) {
-          throw new Error('Contract write function not available')
-        }
 
         setState((prev) => ({
-          ...prev,
-          uploadState: { type: 'contract' },
+          isDraft: false,
+          isSubmitted: true,
+          lastSubmittedAt: Date.now(),
+          submissionDetails: {
+            ...prev.submissionDetails,
+            ipfsUrl: contentHash,
+          },
         }))
 
-        // Convert matches to the format expected by the contract
-        const matchHashes = matches.map(
-          (match) =>
-            keccak256(
-              new TextEncoder().encode(JSON.stringify(match)),
-            ) as `0x${string}`,
-        )
-        const rankings = matches.map((_, index) => BigInt(index))
-
-        const result = await writeContract({
-          address: CONTRACTS.AMAMatcher.address as `0x${string}`,
-          abi: AMA_MATCHER_ABI,
-          functionName: 'submitMatch',
-          args: [amaIdHash, matchHashes, rankings] as const,
-        })
-
-        if (typeof result === 'string') {
-          setHash(result as Hash)
-          const timestamp = Date.now()
-          setState({
-            isDraft: false,
-            isSubmitted: true,
-            lastSubmittedAt: timestamp,
-            submissionDetails: {
-              ipfsUrl: submissionResult.contentHash,
-              transactionHash: result,
-            },
-          })
-          // Clear draft after successful submission
-          deleteDraft()
-        }
-        setIsSubmitting(false)
-        return result
+        setCurrentSubmission(matches)
+        return contentHash
       } catch (err) {
-        console.error('Error submitting matches:', err)
-        setError(err instanceof Error ? err : new Error('Unknown error'))
+        const error = err instanceof Error ? err : new Error('Unknown error')
+        setError(error)
+        throw error
+      } finally {
         setIsSubmitting(false)
-        throw err
+        setState((prev) => ({ ...prev, uploadState: undefined }))
       }
     },
-    [isConnected, address, amaId, writeContract, deleteDraft],
+    [amaId, isSubmitting, isUpdating, updateIPFSMapping, address],
   )
+
+  const saveDraft = useCallback(async (matches: Match[]) => {
+    try {
+      setCurrentSubmission(matches)
+      setState((prev) => ({
+        ...prev,
+        isDraft: true,
+        isSubmitted: false,
+      }))
+      // Could add local storage persistence here if needed
+    } catch (error) {
+      console.error('Error saving draft:', error)
+    }
+  }, [])
+
+  const deleteDraft = useCallback(() => {
+    setCurrentSubmission([])
+    setState({
+      isDraft: true,
+      isSubmitted: false,
+    })
+  }, [])
 
   return {
     submit,
     saveDraft,
     deleteDraft,
-    isSubmitting: isSubmitting || isConfirming,
+    isSubmitting,
     error,
-    hash,
     state,
     currentSubmission,
   }

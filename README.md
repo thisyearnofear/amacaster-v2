@@ -18,9 +18,11 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - Track engagement metrics and match history
    - Display both IPFS-verified and on-chain featured Q&As
 
-3. **Match Submission**
+3. **Match Submission & IPFS Management**
    - Submit top 2 most useful Q&As to IPFS (verified submissions)
    - Submit single most valuable Q&A on-chain (featured submissions)
+   - On-chain IPFS content mapping through IPCM
+   - Track and verify IPFS content history through events
    - Support for multiple answers per question
    - Chronological display of submissions
 
@@ -30,10 +32,18 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
 
 - **On-chain Storage**:
   - Featured Q&A pairs stored directly on-chain
-  - Minimal storage using Merkle roots and IPFS content hashes for regular submissions
-- **Off-chain Storage**: IPFS via Pinata for regular match data and content
-- **Verification**: Merkle proofs for efficient data verification
-- **Security**: ECDSA signatures for data authenticity
+  - IPFS content mapping through IPCM contract
+  - Minimal storage using Merkle roots for regular submissions
+  - Event-based history tracking for content updates
+- **Off-chain Storage**:
+  - IPFS via Pinata for regular match data and content
+  - Content-addressed storage with version history
+- **Verification**:
+  - Merkle proofs for efficient data verification
+  - IPFS content integrity through CIDs
+- **Security**:
+  - ECDSA signatures for data authenticity
+  - Owner-controlled IPFS content updates
 
 ### Key Components
 
@@ -43,19 +53,21 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - `AMAMatcher`: Optimized match submission and verification system
    - `AMARegistry`: Registry of AMAs and their creators
    - `AMAFeatured`: On-chain storage for featured Q&A submissions
+   - `AMAIPCM`: On-chain IPFS content mapping and history
 
 2. **Off-chain Storage (IPFS/Pinata)**
 
    - Regular question-answer pairs
-   - Match submissions
-   - User metadata
-   - Version history
+   - Match submissions with version control
+   - User metadata and profile data
+   - Content history through IPFS CIDs
 
 3. **Frontend**
-   - Next.js application
+   - Next.js application with TypeScript
    - RainbowKit for wallet connection
    - Farcaster integration for social features
    - Web3.bio integration for profile data
+   - IPFS content history viewer
 
 ## Contract Addresses (Optimism Sepolia)
 
@@ -63,6 +75,7 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
 - AMARegistry: [Address]
 - AMAMatcher: [Address]
 - AMAContract: [Address]
+- AMAIPCM: `0x86D7cD141775f866403161974fB941F39F4C38Ef`
 
 ## Getting Started
 

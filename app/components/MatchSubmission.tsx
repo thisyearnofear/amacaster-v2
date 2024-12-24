@@ -1,126 +1,115 @@
-import { useState, useEffect, useMemo, memo } from 'react'
-import { useMatchSubmission } from '../hooks/useMatchSubmission'
-import { type Match } from '../utils/matchSubmission'
+import { useState } from 'react'
+import { useIPCM } from '../hooks/useIPCM'
+import { uploadMatchesToIPFS } from '../utils/ipfs'
+import type { IPFSMatchData } from '../utils/ipfs'
 
 interface MatchSubmissionProps {
-  amaId: string
-  matches: Match[] // Existing matches from your matching logic
+  matchData: IPFSMatchData
   onSuccess?: () => void
   onError?: (error: Error) => void
 }
 
-// Define the submission tuple type
-type MatchSubmissionData = readonly [
-  matchHashes: readonly `0x${string}`[],
-  rankings: readonly bigint[],
-  timestamp: bigint,
-]
-
-// Memoized match list item component
-const MatchListItem = memo(({ match }: { match: Match }) => (
-  <li className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-    <div>
-      <p className="text-sm font-medium">
-        Q: {match.questionHash.slice(0, 10)}...
-      </p>
-      <p className="text-sm font-medium">
-        A: {match.answerHash.slice(0, 10)}...
-      </p>
-      <p className="text-sm text-gray-600">Rank: {match.ranking}</p>
-    </div>
-  </li>
-))
-MatchListItem.displayName = 'MatchListItem'
-
-// Memoized submission info component
-const SubmissionInfo = memo(
-  ({ submission }: { submission: MatchSubmissionData }) => (
-    <div className="mb-6 p-4 bg-purple-50 rounded-lg">
-      <h3 className="font-semibold mb-2">Current Submission</h3>
-      <p className="text-sm text-gray-600">Matches: {submission[0].length}</p>
-      <p className="text-sm text-gray-600">
-        Status: {submission[1].length === 0 ? 'Draft' : 'Submitted'}
-      </p>
-      <p className="text-sm text-gray-600">
-        Timestamp: {new Date(Number(submission[2])).toLocaleString()}
-      </p>
-    </div>
-  ),
-)
-SubmissionInfo.displayName = 'SubmissionInfo'
-
 export function MatchSubmission({
-  amaId,
-  matches,
+  matchData,
   onSuccess,
   onError,
 }: MatchSubmissionProps) {
-  const { submit, isSubmitting, error, state, currentSubmission } =
-    useMatchSubmission(amaId)
+  const { updateIPFSMapping, isUpdating } = useIPCM()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [localError, setLocalError] = useState<string | null>(null)
+  const handleSubmit = async () => {
+    if (isSubmitting || isUpdating) return
+    setIsSubmitting(true)
+    setError(null)
 
-  // Memoize handlers to prevent unnecessary re-renders
-  const handleSubmit = useMemo(
-    () => async () => {
-      setLocalError(null)
-
-      try {
-        if (matches.length === 0) {
-          throw new Error('Please add at least one match')
-        }
-
-        await submit(matches)
-        onSuccess?.()
-      } catch (err) {
-        console.error('Error submitting matches:', err)
-        const message = err instanceof Error ? err.message : 'Unknown error'
-        setLocalError(message)
-        onError?.(err as Error)
-      }
-    },
-    [matches, submit, onSuccess, onError],
-  )
-
-  // Memoize button states
-  const submitButtonDisabled = useMemo(
-    () => isSubmitting || matches.length === 0,
-    [isSubmitting, matches.length],
-  )
+    try {
+      // Upload to IPFS and update IPCM mapping
+      const contentHash = await uploadMatchesToIPFS(
+        matchData,
+        updateIPFSMapping,
+      )
+      console.log('Successfully uploaded and mapped:', contentHash)
+      onSuccess?.()
+    } catch (error) {
+      console.error('Error submitting matches:', error)
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMessage)
+      onError?.(error instanceof Error ? error : new Error(errorMessage))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-6">Submit Matches</h2>
+    <div className="space-y-6">
+      {/* Match Summary Card */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-900 mb-4">
+          Match Summary
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500">Total Matches</p>
+            <p className="text-sm mt-1">{matchData.matches.length} pairs</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500">Version</p>
+            <p className="text-sm mt-1">{matchData.metadata.version}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-500">AMA ID</p>
+            <p className="text-sm mt-1 font-mono">{matchData.amaId}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-500">Submitter</p>
+            <p className="text-sm mt-1">{matchData.metadata.submitter}</p>
+          </div>
+        </div>
+      </div>
 
-      {(error || localError) && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-          {error?.message || localError}
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+          {error}
         </div>
       )}
 
-      {/* Match List */}
-      <div className="mb-6">
-        <h3 className="font-semibold mb-4">Matches</h3>
-        {matches.length === 0 ? (
-          <p className="text-gray-500">No matches available</p>
+      {/* Submit Button */}
+      <button
+        onClick={handleSubmit}
+        disabled={isSubmitting || isUpdating}
+        className="w-full py-2.5 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+      >
+        {isSubmitting || isUpdating ? (
+          <span className="flex items-center justify-center">
+            <svg
+              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Submitting...
+          </span>
         ) : (
-          <ul className="space-y-4">
-            {matches.map((match, index) => (
-              <MatchListItem key={index} match={match} />
-            ))}
-          </ul>
+          'Submit Matches'
         )}
-      </div>
-
-      <div className="flex gap-4">
-        <button
-          onClick={handleSubmit}
-          disabled={submitButtonDisabled}
-          className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Matches'}
-        </button>
-      </div>
+      </button>
     </div>
   )
 }

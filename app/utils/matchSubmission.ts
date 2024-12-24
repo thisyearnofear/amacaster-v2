@@ -75,9 +75,9 @@ export interface SubmissionMetadata {
   timestamp: number
   version: number
   submitter: Address
-  submitter_fid: string
+  submitter_fid?: string
   ama_title: string
-  ama_host: string
+  ama_host?: string
   curation_criteria?: {
     focus_topics?: string[]
     quality_threshold?: number

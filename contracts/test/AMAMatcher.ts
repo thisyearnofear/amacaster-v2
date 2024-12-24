@@ -126,3 +126,36 @@ describe('AMAMatcher', function () {
     })
   })
 })
+
+describe('AMAIPCM', function () {
+  let amaipcm: any
+  let owner: any
+  let other: any
+
+  beforeEach(async function () {
+    ;[owner, other] = await ethers.getSigners()
+    const AMAIPCM = await ethers.getContractFactory('AMAIPCM', owner)
+    amaipcm = await AMAIPCM.deploy()
+    await amaipcm.waitForDeployment()
+  })
+
+  it('should allow owner to update mapping', async function () {
+    const testCid = 'ipfs://QmTest123'
+    await amaipcm.updateMapping(testCid)
+    expect(await amaipcm.getMapping()).to.equal(testCid)
+  })
+
+  it('should emit MappingUpdated event', async function () {
+    const testCid = 'ipfs://QmTest123'
+    await expect(amaipcm.updateMapping(testCid))
+      .to.emit(amaipcm, 'MappingUpdated')
+      .withArgs(testCid)
+  })
+
+  it('should not allow non-owner to update mapping', async function () {
+    const testCid = 'ipfs://QmTest123'
+    await expect(
+      amaipcm.connect(other).updateMapping(testCid),
+    ).to.be.revertedWith('Ownable: caller is not the owner')
+  })
+})

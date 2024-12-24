@@ -1,55 +1,25 @@
 import axios from 'axios'
+import type { Match } from './matchSubmission'
 
 // Types for our IPFS data structures
 export interface IPFSMatchData {
   amaId: string
-  matches: {
-    questionHash: string
-    answerHash: string
-    ranking: number
-    // Add actual content
-    questionContent: {
-      text: string
-      cast_id: string
-      timestamp: number
-      author: {
-        fid: number
-        username: string
-      }
-    }
-    answerContent: {
-      text: string
-      cast_id: string
-      timestamp: number
-      author: {
-        fid: number
-        username: string
-      }
-    }
-    // Add metadata
-    category?: string
-    tags?: string[]
-    quality_signals?: {
-      relevance_score?: number
-      engagement_score?: number
-      curator_notes?: string
-    }
-  }[]
+  matches: Match[]
   metadata: {
     timestamp: number
     version: number
     submitter: string
-    submitter_fid: string
+    submitter_fid?: string
     ama_title: string
-    ama_host: string
+    ama_host?: string
     curation_criteria?: {
       focus_topics?: string[]
       quality_threshold?: number
       curation_guidelines?: string
     }
   }
-  merkle_root: string
-  signature: string
+  merkle_root?: string
+  signature?: string
 }
 
 interface PinataMetadata {
@@ -77,130 +47,157 @@ const PINATA_API_URL = 'https://api.pinata.cloud'
 const PINATA_GATEWAY_URL =
   process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud'
 
+// Add IPCM integration
+interface IPCMContract {
+  updateMapping(value: string): Promise<void>
+  getMapping(): Promise<string>
+}
+
+export async function updateIPCMMapping(
+  contract: IPCMContract,
+  contentHash: string,
+): Promise<void> {
+  try {
+    await contract.updateMapping(`ipfs://${contentHash}`)
+    console.log('Updated IPCM mapping to:', contentHash)
+  } catch (error) {
+    console.error('Error updating IPCM mapping:', error)
+    throw new Error('Failed to update IPCM mapping')
+  }
+}
+
+export async function getLatestIPFSHash(
+  contract: IPCMContract,
+): Promise<string> {
+  try {
+    const mapping = await contract.getMapping()
+    // Remove ipfs:// prefix if present
+    return mapping.replace('ipfs://', '')
+  } catch (error) {
+    console.error('Error getting latest IPFS hash:', error)
+    throw new Error('Failed to get latest IPFS hash')
+  }
+}
+
 /**
- * Upload match data to IPFS
- * @param data Match data to upload
- * @returns IPFS content hash (CID)
+ * Internal function to handle the actual upload to IPFS
+ */
+async function uploadToIPFS(data: IPFSMatchData): Promise<string> {
+  if (!process.env.NEXT_PUBLIC_PINATA_JWT) {
+    throw new Error('Pinata JWT not configured')
+  }
+
+  // Validate input data
+  if (
+    !data.amaId ||
+    !Array.isArray(data.matches) ||
+    data.matches.length === 0 ||
+    !data.metadata
+  ) {
+    throw new Error('Invalid match data format')
+  }
+
+  // Create form data
+  const formData = new FormData()
+
+  // Prepare data for upload
+  const uploadData = {
+    ...data,
+    matches: data.matches.map((match) => ({
+      questionHash: match.questionHash,
+      answerHash: match.answerHash,
+      ranking: match.ranking,
+      questionContent: {
+        text: match.questionContent.text,
+        cast_id: match.questionContent.cast_id,
+        timestamp: match.questionContent.timestamp,
+        author: {
+          fid: parseInt(match.questionContent.author.fid.toString()),
+          username: match.questionContent.author.username,
+        },
+      },
+      answerContent: {
+        text: match.answerContent.text,
+        cast_id: match.answerContent.cast_id,
+        timestamp: match.answerContent.timestamp,
+        author: {
+          fid: parseInt(match.answerContent.author.fid.toString()),
+          username: match.answerContent.author.username,
+        },
+      },
+    })),
+  }
+
+  const blob = new Blob([JSON.stringify(uploadData)], {
+    type: 'application/json',
+  })
+  formData.append('file', blob, 'matches.json')
+
+  // Add metadata for better discoverability
+  const metadata = {
+    name: `AMA_${data.amaId.slice(0, 8)}_matches`,
+    keyvalues: {
+      amaId: data.amaId,
+      version: data.metadata.version,
+      submitter: data.metadata.submitter,
+      match_count: data.matches.length,
+    },
+  }
+
+  formData.append('pinataMetadata', JSON.stringify(metadata))
+
+  try {
+    // Upload to IPFS via Pinata
+    const response = await axios.post<PinataResponse>(
+      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        maxBodyLength: Infinity,
+      },
+    )
+
+    console.log('Pinata upload successful:', response.data)
+    return response.data.IpfsHash
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('Pinata API Error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        request: {
+          method: error.config?.method,
+          url: error.config?.url,
+        },
+      })
+    }
+    throw error
+  }
+}
+
+/**
+ * Upload match data to IPFS and optionally update IPCM contract
  */
 export async function uploadMatchesToIPFS(
   data: IPFSMatchData,
+  updateIPFSMapping?: (cid: string) => Promise<void>,
 ): Promise<string> {
   try {
-    if (!process.env.NEXT_PUBLIC_PINATA_JWT) {
-      throw new Error('Pinata JWT not configured')
+    const contentHash = await uploadToIPFS(data)
+
+    // If IPCM update function is provided, update the mapping
+    if (updateIPFSMapping) {
+      await updateIPFSMapping(contentHash)
     }
 
-    // Validate input data
-    if (
-      !data.amaId ||
-      !Array.isArray(data.matches) ||
-      data.matches.length === 0 ||
-      !data.metadata
-    ) {
-      throw new Error('Invalid match data format')
-    }
-
-    // Create form data
-    const formData = new FormData()
-
-    // Prepare data for upload
-    const uploadData = {
-      ...data,
-      matches: data.matches.map((match) => ({
-        questionHash: match.questionHash,
-        answerHash: match.answerHash,
-        ranking: match.ranking,
-        questionContent: {
-          text: match.questionContent.text,
-          cast_id: match.questionContent.cast_id,
-          timestamp: match.questionContent.timestamp,
-          author: {
-            fid: parseInt(match.questionContent.author.fid.toString()),
-            username: match.questionContent.author.username,
-          },
-        },
-        answerContent: {
-          text: match.answerContent.text,
-          cast_id: match.answerContent.cast_id,
-          timestamp: match.answerContent.timestamp,
-          author: {
-            fid: parseInt(match.answerContent.author.fid.toString()),
-            username: match.answerContent.author.username,
-          },
-        },
-      })),
-    }
-
-    const blob = new Blob([JSON.stringify(uploadData)], {
-      type: 'application/json',
-    })
-    formData.append('file', blob, 'matches.json')
-
-    // Add metadata for better discoverability
-    const metadata = {
-      name: `AMA_${data.amaId.slice(0, 8)}_matches`,
-      keyvalues: {
-        amaId: data.amaId,
-        version: data.metadata.version,
-        submitter: data.metadata.submitter,
-        match_count: data.matches.length,
-      },
-    }
-
-    // Add debug logging
-    console.log('IPFS Upload Details:', {
-      fileSize: blob.size,
-      metadata,
-      formData: {
-        entries: Array.from(formData.entries()).map(([key]) => key),
-        file: blob.size,
-      },
-      sampleData: {
-        amaId: data.amaId,
-        matchCount: data.matches.length,
-        firstMatch: uploadData.matches[0],
-      },
-    })
-
-    formData.append('pinataMetadata', JSON.stringify(metadata))
-
-    try {
-      // Upload to IPFS via Pinata
-      const response = await axios.post<PinataResponse>(
-        `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          maxBodyLength: Infinity,
-        },
-      )
-
-      console.log('Pinata upload successful:', response.data)
-      return response.data.IpfsHash
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Pinata API Error:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          headers: error.response?.headers,
-          request: {
-            method: error.config?.method,
-            url: error.config?.url,
-          },
-        })
-      }
-      throw error
-    }
+    return contentHash
   } catch (error) {
-    console.error('Error uploading to IPFS:', error)
-    if (error instanceof Error) {
-      throw new Error(`Failed to upload to IPFS: ${error.message}`)
-    }
-    throw new Error('Failed to upload to IPFS: Unknown error')
+    console.error('Error in uploadMatchesToIPFS:', error)
+    throw error
   }
 }
 

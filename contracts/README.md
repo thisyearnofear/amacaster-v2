@@ -18,11 +18,12 @@ This directory contains the smart contracts for the Amacast platform, deployed o
    - Engagement metrics
    - Farcaster integration
 
-3. **Data Verification**
+3. **Data Management & Verification**
    - Merkle tree verification for matches
-   - IPFS content integrity
+   - IPFS content integrity through IPCM
    - Signature validation
    - State management
+   - Content history tracking
 
 ## Architecture Overview
 
@@ -31,9 +32,10 @@ This directory contains the smart contracts for the Amacast platform, deployed o
 1. **IPFS Integration**
 
    - Match data stored on IPFS via Pinata
-   - Only content hashes stored on-chain
+   - Content mapping through IPCM contract
    - Efficient content retrieval through dedicated gateway
    - Versioning support through content addressing
+   - On-chain event history for content updates
 
 2. **Merkle Tree Implementation**
 
@@ -64,6 +66,13 @@ This directory contains the smart contracts for the Amacast platform, deployed o
 - Reputation system
 - Contract state management
 
+### AMAIPCM (`0x86D7cD141775f866403161974fB941F39F4C38Ef`)
+
+- On-chain IPFS content mapping
+- Owner-controlled content updates
+- Event-based version history
+- Content integrity verification
+
 ## Data Flow
 
 1. **Match Submission Process**
@@ -72,17 +81,19 @@ This directory contains the smart contracts for the Amacast platform, deployed o
    Frontend -> IPFS -> Smart Contract
    1. Generate Merkle tree from matches
    2. Upload data to IPFS via Pinata
-   3. Store IPFS hash and Merkle root on-chain
-   4. Sign transaction for authenticity
+   3. Store IPFS hash in IPCM contract
+   4. Store Merkle root in AMAMatcher
+   5. Sign transaction for authenticity
    ```
 
 2. **Verification Process**
    ```
    Smart Contract <- IPFS <- Frontend
-   1. Retrieve data from IPFS
-   2. Generate Merkle proof
-   3. Verify proof against on-chain root
-   4. Validate signature
+   1. Retrieve latest CID from IPCM
+   2. Fetch data from IPFS
+   3. Generate Merkle proof
+   4. Verify proof against on-chain root
+   5. Validate signature
    ```
 
 ## Development

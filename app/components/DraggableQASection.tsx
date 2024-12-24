@@ -18,6 +18,7 @@ import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem'
 import DraftControls from './DraftControls'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
+import { VersionHistoryModal } from './VersionHistoryModal'
 
 // Import styles in a way that works with Next.js
 import 'slick-carousel/slick/slick.css'
@@ -98,6 +99,8 @@ export default function DraggableQASection({
   const [currentAnswerIndices, setCurrentAnswerIndices] = useState<{
     [key: string]: number
   }>({})
+
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
 
   const {
     submit,
@@ -832,7 +835,7 @@ export default function DraggableQASection({
                       }
                       disabled={currentAnswerIndex === entry.answers.length - 1}
                     >
-                      ��
+                      ›
                     </button>
                   </div>
                 </div>
@@ -1412,7 +1415,7 @@ export default function DraggableQASection({
           color: 'indigo',
         }
       }
-      if (isSubmitted && state.lastSubmittedAt) {
+      if (!state.isDraft && state.lastSubmittedAt) {
         const timeAgo = formatTimeAgo(state.lastSubmittedAt)
         return {
           text: '✓ Matches submitted successfully',
@@ -1478,54 +1481,79 @@ export default function DraggableQASection({
               isInline={true}
             />
 
-            {/* Submit Button */}
-            <button
-              onClick={() => {
-                if (!isCorrectNetwork && isConnected) {
-                  switchChain({ chainId: optimismSepolia.id })
-                } else {
-                  handleSubmit()
+            <div className="flex items-center gap-4">
+              {/* Version History Button - Only show if there are previous submissions */}
+              {state.submissionDetails?.ipfsUrl && (
+                <button
+                  onClick={() => setIsHistoryModalOpen(true)}
+                  className="text-sm text-gray-500 hover:text-gray-600 flex items-center gap-1"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  History
+                </button>
+              )}
+
+              {/* Submit Button */}
+              <button
+                onClick={() => {
+                  if (!isCorrectNetwork && isConnected) {
+                    switchChain({ chainId: optimismSepolia.id })
+                  } else {
+                    handleSubmit()
+                  }
+                }}
+                disabled={
+                  (!canSubmit && isLoggedIn) ||
+                  (isCorrectNetwork && isSubmitting) ||
+                  isSubmitted
                 }
-              }}
-              disabled={
-                (!canSubmit && isLoggedIn) ||
-                (isCorrectNetwork && isSubmitting) ||
-                isSubmitted
-              }
-              className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                !isLoggedIn
-                  ? 'bg-gray-100 text-gray-400'
+                className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                  !isLoggedIn
+                    ? 'bg-gray-100 text-gray-400'
+                    : !isConnected
+                    ? 'bg-gray-100 text-gray-400'
+                    : !isCorrectNetwork
+                    ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 cursor-pointer'
+                    : isSubmitting
+                    ? 'bg-indigo-500 text-white opacity-75'
+                    : isSubmitted
+                    ? 'bg-green-500 text-white'
+                    : submitError
+                    ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                    : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                }`}
+              >
+                {!isLoggedIn
+                  ? 'Login to Play'
                   : !isConnected
-                  ? 'bg-gray-100 text-gray-400'
+                  ? 'Connect Wallet'
                   : !isCorrectNetwork
-                  ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 cursor-pointer'
+                  ? 'Switch Network'
                   : isSubmitting
-                  ? 'bg-indigo-500 text-white opacity-75'
+                  ? state.uploadState?.type === 'ipfs'
+                    ? 'Uploading to IPFS...'
+                    : state.uploadState?.type === 'contract'
+                    ? 'Confirm in Wallet...'
+                    : 'Submitting...'
                   : isSubmitted
-                  ? 'bg-green-500 text-white'
+                  ? 'Submitted!'
                   : submitError
-                  ? 'bg-indigo-500 text-white hover:bg-indigo-600'
-                  : 'bg-indigo-500 text-white hover:bg-indigo-600'
-              }`}
-            >
-              {!isLoggedIn
-                ? 'Login to Play'
-                : !isConnected
-                ? 'Connect Wallet'
-                : !isCorrectNetwork
-                ? 'Switch Network'
-                : isSubmitting
-                ? state.uploadState?.type === 'ipfs'
-                  ? 'Uploading to IPFS...'
-                  : state.uploadState?.type === 'contract'
-                  ? 'Confirm in Wallet...'
-                  : 'Submitting...'
-                : isSubmitted
-                ? 'Submitted!'
-                : submitError
-                ? 'Try Again'
-                : 'Submit Top 2 Matches'}
-            </button>
+                  ? 'Try Again'
+                  : 'Submit Top 2 Matches'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1622,6 +1650,15 @@ export default function DraggableQASection({
         {renderQuickMoveOverlay()}
         {isPairedMode ? renderPairedMode() : renderMatchingMode()}
       </DragDropContext>
+
+      {/* Add the modal at the end */}
+      <VersionHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        amaId={
+          localSecondTier[0]?.parent_hash || localSecondTier[0]?.hash || ''
+        }
+      />
     </div>
   )
 }

@@ -224,8 +224,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
       <div className="ama-header">
         {/* Instructions Banner */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-          <h3 className="text-lg font-semibold mb-2">Instructions</h3>
-          <ul className="list-disc list-inside space-y-2 text-gray-600">
+          <ul className="list-disc text-center list-inside space-y-2 text-gray-600">
             {isAdmin ? (
               <>
                 <li>Review and approve Q&A pairs</li>
@@ -234,9 +233,10 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
               </>
             ) : (
               <>
-                <li>Choose your top 2 most useful Q&As from the AMA</li>
-                <li>Match and rank them by usefulness</li>
-                <li>Stack multiple answers if needed</li>
+                <li>View AMA: unjumbled Farcaster ama</li>
+                <li>Pick your top two q&a pairs</li>
+                <li>Match & add them to amacast</li>
+                <li>Stack multi-answers if needed</li>
               </>
             )}
           </ul>

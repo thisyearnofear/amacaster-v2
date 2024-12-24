@@ -203,4 +203,23 @@ contract AMAMatcher is Ownable, ReentrancyGuard {
         // Store only the merkle root of correct matches
         // Individual matches can be verified using merkle proofs
     }
+}
+
+contract AMAIPCM is Ownable {
+    string private cidMapping;
+    
+    constructor() {
+        _transferOwnership(msg.sender);
+    }
+    
+    event MappingUpdated(string value);
+    
+    function updateMapping(string memory value) public onlyOwner {
+        cidMapping = value;
+        emit MappingUpdated(value);
+    }
+    
+    function getMapping() public view returns (string memory) {
+        return cidMapping;
+    }
 } 
