@@ -29,9 +29,7 @@ export default function ProfileIndexPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="text-center">
-        <h2 className="text-xl font-bold mb-4">
-          Welcome to AMAcaster Profiles
-        </h2>
+        <h2 className="text-xl font-bold mb-4">WAMAcast Profiles</h2>
         <p className="text-gray-600 mb-4">
           Please connect with Farcaster to view your profile or search for other
           profiles.

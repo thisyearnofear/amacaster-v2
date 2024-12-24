@@ -19,13 +19,26 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.24',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
+    compilers: [
+      {
+        version: '0.8.20',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
-    },
+      {
+        version: '0.8.24',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+    ],
   },
   networks: {
     hardhat: {},
@@ -47,11 +60,11 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      optimisticSepolia: ETHERSCAN_API_KEY,
+      'optimism-sepolia': ETHERSCAN_API_KEY,
     },
     customChains: [
       {
-        network: 'optimisticSepolia',
+        network: 'optimism-sepolia',
         chainId: 11155420,
         urls: {
           apiURL: 'https://api-sepolia-optimistic.etherscan.io/api',
@@ -59,6 +72,12 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+  },
+  paths: {
+    sources: './contracts',
+    tests: './test',
+    cache: './cache',
+    artifacts: './artifacts',
   },
   typechain: {
     outDir: 'typechain-types',

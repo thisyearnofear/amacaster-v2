@@ -188,15 +188,25 @@ export default function ProfileClient({ fid }: { fid: string }) {
   const { profile, loading: isLoadingProfile } = useWeb3BioProfile(fid)
   const { data: matches = [], isLoading: isLoadingMatches } = useMatches(fid)
 
-  // Group matches by AMA and take all matches from the latest submission for each AMA
-  const latestMatches = matches.reduce((acc: Match[], match) => {
+  // Filter matches to only include Q&As where this profile is involved
+  const profileMatches = matches.filter(
+    (match) =>
+      match.question.author.fid === parseInt(fid) ||
+      match.answer.author.fid === parseInt(fid),
+  )
+
+  // Group by AMA and take only the latest 2 matches from each submission
+  const latestMatches = profileMatches.reduce((acc: Match[], match) => {
     const existingMatchesForAma = acc.filter(
       (m) => m.contractId === match.contractId,
     )
 
     if (existingMatchesForAma.length === 0) {
-      // First time seeing this AMA, add all matches from this submission
-      acc.push(...matches.filter((m) => m.contractId === match.contractId))
+      // First time seeing this AMA, add up to 2 matches from this submission
+      const amaMatches = profileMatches
+        .filter((m) => m.contractId === match.contractId)
+        .slice(0, 2) // Only take first 2 matches
+      acc.push(...amaMatches)
     } else {
       const existingTimestamp = new Date(existingMatchesForAma[0].timestamp)
       const newTimestamp = new Date(match.timestamp)
@@ -204,32 +214,31 @@ export default function ProfileClient({ fid }: { fid: string }) {
       if (newTimestamp > existingTimestamp) {
         // Remove old matches for this AMA
         acc = acc.filter((m) => m.contractId !== match.contractId)
-        // Add all matches from this newer submission
-        acc.push(...matches.filter((m) => m.contractId === match.contractId))
+        // Add up to 2 matches from this newer submission
+        const amaMatches = profileMatches
+          .filter((m) => m.contractId === match.contractId)
+          .slice(0, 2)
+        acc.push(...amaMatches)
       }
     }
     return acc
   }, [])
 
-  // Sort matches by ranking (1 to 5)
-  const sortedMatches = [...latestMatches].sort((a, b) => {
-    // First sort by contractId to group AMA matches together
-    if (a.contractId !== b.contractId) {
-      return a.contractId.localeCompare(b.contractId)
-    }
-    // Then sort by ranking within each AMA
-    return (a.score || 0) - (b.score || 0)
-  })
+  // Remove duplicates based on question and answer content
+  const uniqueMatches = latestMatches.filter(
+    (match, index, self) =>
+      index ===
+      self.findIndex(
+        (m) =>
+          m.question.text === match.question.text &&
+          m.answer.text === match.answer.text,
+      ),
+  )
 
-  console.log('Matches:', {
-    original: matches.length,
-    latest: latestMatches.length,
-    sorted: sortedMatches.length,
-    byAma: sortedMatches.reduce((acc, m) => {
-      acc[m.contractId] = (acc[m.contractId] || 0) + 1
-      return acc
-    }, {} as Record<string, number>),
-  })
+  // Sort matches by timestamp (most recent first)
+  const sortedMatches = [...uniqueMatches].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  )
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -239,11 +248,31 @@ export default function ProfileClient({ fid }: { fid: string }) {
         <>
           <ProfileHeader profile={profile} />
           <ProfileMetrics matches={sortedMatches} fid={fid} />
-          {sortedMatches.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <MatchHistory matches={sortedMatches} />
-          )}
+
+          {/* Regular Q&As section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Recent Q&As
+            </h2>
+            {sortedMatches.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <MatchHistory matches={sortedMatches} />
+            )}
+          </div>
+
+          {/* Featured Q&As section - will be implemented in Stage 2 */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Featured Q&As
+            </h2>
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <p className="text-gray-500 text-center">
+                Coming soon - on-chain featured Q&As
+              </p>
+            </div>
+          </div>
+
           <FeaturedAMAs />
         </>
       )}

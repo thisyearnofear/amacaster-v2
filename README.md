@@ -1,4 +1,4 @@
-# Amacaster
+# Amacast
 
 A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Farcaster social features with blockchain-based verification.
 
@@ -9,24 +9,29 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - Browse featured AMAs from prominent Web3 figures
    - View curated Q&A matches ranked by usefulness
    - Stack multiple answers for comprehensive insights
+   - Featured Q&As submitted on-chain for high-value content
 
 2. **Profile Integration**
 
    - Farcaster profile integration with web3.bio data
    - View user's Q&A history and contributions
    - Track engagement metrics and match history
+   - Display both IPFS-verified and on-chain featured Q&As
 
 3. **Match Submission**
-   - Submit top 5 most useful Q&As from AMAs
-   - Rank matches by usefulness
+   - Submit top 2 most useful Q&As to IPFS (verified submissions)
+   - Submit single most valuable Q&A on-chain (featured submissions)
    - Support for multiple answers per question
+   - Chronological display of submissions
 
 ## Architecture
 
 ### Storage Strategy
 
-- **On-chain Storage**: Minimal storage using Merkle roots and IPFS content hashes
-- **Off-chain Storage**: IPFS via Pinata for actual match data and content
+- **On-chain Storage**:
+  - Featured Q&A pairs stored directly on-chain
+  - Minimal storage using Merkle roots and IPFS content hashes for regular submissions
+- **Off-chain Storage**: IPFS via Pinata for regular match data and content
 - **Verification**: Merkle proofs for efficient data verification
 - **Security**: ECDSA signatures for data authenticity
 
@@ -36,10 +41,12 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
 
    - `AMAContract`: Core AMA functionality and user profiles
    - `AMAMatcher`: Optimized match submission and verification system
+   - `AMARegistry`: Registry of AMAs and their creators
+   - `AMAFeatured`: On-chain storage for featured Q&A submissions
 
 2. **Off-chain Storage (IPFS/Pinata)**
 
-   - Question-Answer pairs
+   - Regular question-answer pairs
    - Match submissions
    - User metadata
    - Version history
@@ -49,6 +56,13 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - RainbowKit for wallet connection
    - Farcaster integration for social features
    - Web3.bio integration for profile data
+
+## Contract Addresses (Optimism Sepolia)
+
+- AMAFeatured: `0xA78d4FcDaee13A11c11AEaD7f3a68CD15E8CB722`
+- AMARegistry: [Address]
+- AMAMatcher: [Address]
+- AMAContract: [Address]
 
 ## Getting Started
 

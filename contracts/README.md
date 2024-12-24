@@ -1,6 +1,6 @@
-# Amacaster Smart Contracts
+# Amacast Smart Contracts
 
-This directory contains the smart contracts for the Amacaster platform, deployed on Optimism Sepolia testnet.
+This directory contains the smart contracts for the Amacast platform, deployed on Optimism Sepolia testnet.
 
 ## Core Features
 

@@ -9,7 +9,7 @@ export function WalletConnect() {
       chainStatus="icon"
       accountStatus={{
         smallScreen: 'avatar',
-        largeScreen: 'full',
+        largeScreen: 'address',
       }}
     />
   )

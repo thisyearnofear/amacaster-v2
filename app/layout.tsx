@@ -7,7 +7,7 @@ import { AuthContainer } from './components/AuthContainer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AMACASTER',
+  title: 'AMACAST',
   description: 'One-stop FC AMA shop',
 }
 

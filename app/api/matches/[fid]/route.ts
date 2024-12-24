@@ -11,6 +11,8 @@ interface PinataMetadata {
     merkleRoot: string
     matches: string[]
     rankings: number[]
+    submitter_fid: number
+    submitter_username: string
   }
 }
 
@@ -41,18 +43,13 @@ export interface Match {
       username: string
     }
   }
-  score?: number
-  category?: string
-  tags?: string[]
-  quality_signals?: {
-    relevance_score?: number
-    engagement_score?: number
-    curator_notes?: string
-  }
   ipfsHash: string
   merkleRoot: string
   contractId: string
-  rankings: number[]
+  submitter?: {
+    fid: number
+    username: string
+  }
 }
 
 const client = createPublicClient({
@@ -68,8 +65,16 @@ async function fetchMatchesFromIPFS(ipfsHash: string): Promise<Match[]> {
 
   try {
     console.log('Fetching matches from IPFS hash:', ipfsHash)
-    const response = await fetch(`${gateway}/ipfs/${ipfsHash}`)
-    if (!response.ok) throw new Error('Failed to fetch from IPFS')
+    const response = await fetch(`${gateway}/ipfs/${ipfsHash}`, {
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      console.error('IPFS fetch failed:', response.status, response.statusText)
+      throw new Error(
+        `Failed to fetch from IPFS: ${response.status} ${response.statusText}`,
+      )
+    }
 
     // Check content type
     const contentType = response.headers.get('content-type')
@@ -88,32 +93,29 @@ async function fetchMatchesFromIPFS(ipfsHash: string): Promise<Match[]> {
       return []
     }
 
-    console.log('IPFS response data:', {
-      amaId: data.amaId,
-      merkle_root: data.merkle_root,
-      matchCount: data.matches?.length,
-    })
-
     // Transform the matches into the expected format
     if (data.matches) {
-      const transformedMatches = data.matches.map((match: any) => ({
+      const transformedMatches = data.matches.slice(0, 2).map((match: any) => ({
         id:
           match.hash ||
           `${data.amaId}-${match.questionContent.cast_id}-${match.answerContent.cast_id}`,
         timestamp: new Date(match.questionContent.timestamp).toISOString(),
         question: match.questionContent,
         answer: match.answerContent,
-        score: match.ranking,
-        category: match.category,
-        tags: match.tags,
-        quality_signals: match.quality_signals,
         ipfsHash: ipfsHash,
         merkleRoot: data.merkle_root,
         contractId: data.amaId,
-        rankings: [match.ranking],
+        submitter: {
+          fid: data.submitter_fid,
+          username: data.submitter_username || 'anonymous',
+        },
       }))
-      console.log('Transformed matches:', transformedMatches.length)
-      return transformedMatches
+
+      // Sort by timestamp (most recent first)
+      return transformedMatches.sort(
+        (a: Match, b: Match) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
     }
     return []
   } catch (error) {
@@ -151,17 +153,27 @@ async function fetchUserSubmissions(fid: string): Promise<PinataRow[]> {
           Authorization: `Bearer ${pinataJWT}`,
           'Content-Type': 'application/json',
         },
+        cache: 'no-store',
       },
     )
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Pinata error response:', errorText)
-      throw new Error(`Failed to fetch from Pinata: ${errorText}`)
+      console.error('Pinata error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      })
+      throw new Error(
+        `Failed to fetch from Pinata: ${response.status} ${response.statusText}`,
+      )
     }
 
     const data = await response.json()
-    console.log('Pinata response for FID', fid, ':', data)
+    console.log('Pinata response for FID', fid, ':', {
+      rowCount: data.rows?.length,
+      totalCount: data.count,
+    })
 
     if (!data.rows) {
       console.log('No rows found in Pinata response')
@@ -220,13 +232,20 @@ export async function GET(
           Authorization: `Bearer ${pinataJWT}`,
           'Content-Type': 'application/json',
         },
+        cache: 'no-store',
       },
     )
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Pinata error response:', errorText)
-      throw new Error(`Failed to fetch from Pinata: ${errorText}`)
+      console.error('Pinata error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      })
+      throw new Error(
+        `Failed to fetch from Pinata: ${response.status} ${response.statusText}`,
+      )
     }
 
     const data = await response.json()
@@ -245,6 +264,7 @@ export async function GET(
 
     const matches: Match[] = []
     const processedAmaIds = new Map<string, Date>()
+    const seenMatches = new Set<string>() // Track unique Q&A pairs
 
     // Process submissions in chronological order (newest first)
     for (const submission of submissions) {
@@ -256,18 +276,25 @@ export async function GET(
         for (const match of ipfsMatches) {
           const submissionDate = new Date(match.timestamp)
           const existingDate = processedAmaIds.get(match.contractId)
+          const matchKey = `${match.question.text}-${match.answer.text}`
 
-          if (!existingDate || submissionDate > existingDate) {
+          // Only add if this is a new match or a newer submission for the same AMA
+          if (
+            !seenMatches.has(matchKey) ||
+            !existingDate ||
+            submissionDate > existingDate
+          ) {
             // Remove any existing matches for this AMA
             const filteredMatches = matches.filter(
               (m) => m.contractId !== match.contractId,
             )
-            // Add all matches from this submission for this AMA
-            const newMatches = ipfsMatches.filter(
-              (m) => m.contractId === match.contractId,
-            )
+            // Add matches from this submission for this AMA (limited to 2)
+            const newMatches = ipfsMatches
+              .filter((m) => m.contractId === match.contractId)
+              .slice(0, 2)
             matches.splice(0, matches.length, ...filteredMatches, ...newMatches)
             processedAmaIds.set(match.contractId, submissionDate)
+            seenMatches.add(matchKey)
             console.log(
               'Updated matches for AMA:',
               match.contractId,
@@ -282,9 +309,10 @@ export async function GET(
       }
     }
 
-    // Sort matches by ranking within each AMA
+    // Sort matches by timestamp (most recent first)
     const sortedMatches = matches.sort(
-      (a, b) => (a.score || 0) - (b.score || 0),
+      (a: Match, b: Match) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     )
 
     console.log('Total matches found:', sortedMatches.length)

@@ -106,7 +106,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center py-12 w-full text-center">
       <div className="max-w-4xl mx-auto px-4">
-        <h1 className="text-5xl font-bold mb-6">AMACASTER</h1>
+        <h1 className="text-5xl font-bold mb-6">AMACAST</h1>
         <p className="text-xl text-gray-600 mb-12">
           Discover, curate, & learn from Farcaster AMAs
         </p>

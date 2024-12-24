@@ -223,13 +223,23 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
       {/* AMA Header */}
       <div className="ama-header">
         {/* Instructions Banner */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg text-center">
-          <h2 className="text-lg font-medium mb-2">AMAcaster</h2>
-          <div className="text-sm text-gray-600 space-y-1">
-            <div>Choose your top 5 most useful Q&As</div>
-            <div>Match and rank them by usefulness</div>
-            <div>Stack multiple answers if needed.</div>
-          </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <h3 className="text-lg font-semibold mb-2">Instructions</h3>
+          <ul className="list-disc list-inside space-y-2 text-gray-600">
+            {isAdmin ? (
+              <>
+                <li>Review and approve Q&A pairs</li>
+                <li>Stack multiple answers if needed</li>
+                <li>Submit approved pairs to IPFS</li>
+              </>
+            ) : (
+              <>
+                <li>Choose your top 2 most useful Q&As from the AMA</li>
+                <li>Match and rank them by usefulness</li>
+                <li>Stack multiple answers if needed</li>
+              </>
+            )}
+          </ul>
         </div>
 
         {/* Guest Profile */}

@@ -9,8 +9,8 @@ describe('AMAMatcher', function () {
   let owner: SignerWithAddress
   let user: SignerWithAddress
   let amaId: string
-  let matchHashes: string[]
-  let rankings: number[]
+  let contentHash: string
+  let merkleRoot: string
 
   beforeEach(async function () {
     ;[owner, user] = await ethers.getSigners()
@@ -21,54 +21,108 @@ describe('AMAMatcher', function () {
 
     // Create test data
     amaId = keccak256(toUtf8Bytes('test-ama'))
-    matchHashes = [
-      keccak256(toUtf8Bytes('match1')),
-      keccak256(toUtf8Bytes('match2')),
-    ]
-    rankings = [0, 1]
+    contentHash = keccak256(toUtf8Bytes('content'))
+    merkleRoot = keccak256(toUtf8Bytes('merkle-root'))
   })
 
-  describe('submitMatch', function () {
+  describe('updateMatch', function () {
     it('should allow users to submit matches', async function () {
-      await expect(
-        amaMatcher.connect(user).submitMatch(amaId, matchHashes, rankings),
+      // Create signature
+      const messageHash = keccak256(
+        ethers.solidityPacked(
+          ['bytes32', 'bytes32', 'bytes32'],
+          [amaId, contentHash, merkleRoot],
+        ),
       )
-        .to.emit(amaMatcher, 'MatchSubmitted')
-        .withArgs(amaId, user.address, matchHashes, rankings)
+      const signature = await user.signMessage(ethers.getBytes(messageHash))
 
-      const match = await amaMatcher.getMatch(amaId, user.address)
-      expect(match[0]).to.deep.equal(matchHashes)
-      expect(match[1]).to.deep.equal(rankings)
+      await expect(
+        amaMatcher
+          .connect(user)
+          .updateMatch(amaId, contentHash, merkleRoot, signature),
+      )
+        .to.emit(amaMatcher, 'MatchUpdated')
+        .withArgs(amaId, user.address, contentHash, merkleRoot, 0, 0) // version 0, state Draft
+
+      const submission = await amaMatcher.getCurrentSubmission(
+        amaId,
+        user.address,
+      )
+      expect(submission[0]).to.equal(contentHash) // contentHash
+      expect(submission[1]).to.equal(merkleRoot) // merkleRoot
+      expect(submission[3]).to.equal(0n) // version
+      expect(submission[4]).to.equal(0) // state Draft
     })
 
-    it('should revert if AMA is already revealed', async function () {
-      await amaMatcher.connect(owner).revealMatches(amaId, matchHashes)
+    it('should revert if AMA is finalized', async function () {
+      // First submission
+      const messageHash = keccak256(
+        ethers.solidityPacked(
+          ['bytes32', 'bytes32', 'bytes32'],
+          [amaId, contentHash, merkleRoot],
+        ),
+      )
+      const signature = await user.signMessage(ethers.getBytes(messageHash))
+      await amaMatcher
+        .connect(user)
+        .updateMatch(amaId, contentHash, merkleRoot, signature)
+
+      // Finalize the match
+      await amaMatcher.connect(user).finalizeMatch(amaId)
+
+      // Try to update after finalization
+      const newContentHash = keccak256(toUtf8Bytes('new-content'))
+      const newMerkleRoot = keccak256(toUtf8Bytes('new-merkle-root'))
+      const newMessageHash = keccak256(
+        ethers.solidityPacked(
+          ['bytes32', 'bytes32', 'bytes32'],
+          [amaId, newContentHash, newMerkleRoot],
+        ),
+      )
+      const newSignature = await user.signMessage(
+        ethers.getBytes(newMessageHash),
+      )
+
       await expect(
-        amaMatcher.connect(user).submitMatch(amaId, matchHashes, rankings),
-      ).to.be.revertedWith('AMA already revealed')
+        amaMatcher
+          .connect(user)
+          .updateMatch(amaId, newContentHash, newMerkleRoot, newSignature),
+      ).to.be.revertedWith('AMA is finalized')
     })
   })
 
   describe('revealMatches', function () {
     it('should allow owner to reveal matches', async function () {
-      await expect(amaMatcher.connect(owner).revealMatches(amaId, matchHashes))
-        .to.emit(amaMatcher, 'MatchRevealed')
-        .withArgs(amaId, matchHashes)
+      // First submit and finalize a match
+      const messageHash = keccak256(
+        ethers.solidityPacked(
+          ['bytes32', 'bytes32', 'bytes32'],
+          [amaId, contentHash, merkleRoot],
+        ),
+      )
+      const signature = await user.signMessage(ethers.getBytes(messageHash))
+      await amaMatcher
+        .connect(user)
+        .updateMatch(amaId, contentHash, merkleRoot, signature)
+      await amaMatcher.connect(user).finalizeMatch(amaId)
 
-      expect(await amaMatcher.isRevealed(amaId)).to.be.true
+      // Reveal matches
+      const correctMatchesRoot = keccak256(toUtf8Bytes('correct-matches'))
+      await amaMatcher.connect(owner).revealMatches(amaId, correctMatchesRoot)
     })
 
     it('should revert if caller is not owner', async function () {
+      const correctMatchesRoot = keccak256(toUtf8Bytes('correct-matches'))
       await expect(
-        amaMatcher.connect(user).revealMatches(amaId, matchHashes),
-      ).to.be.revertedWithCustomError(amaMatcher, 'OwnableUnauthorizedAccount')
+        amaMatcher.connect(user).revealMatches(amaId, correctMatchesRoot),
+      ).to.be.revertedWith('Ownable: caller is not the owner')
     })
 
-    it('should revert if AMA is already revealed', async function () {
-      await amaMatcher.connect(owner).revealMatches(amaId, matchHashes)
+    it('should revert if AMA is not finalized', async function () {
+      const correctMatchesRoot = keccak256(toUtf8Bytes('correct-matches'))
       await expect(
-        amaMatcher.connect(owner).revealMatches(amaId, matchHashes),
-      ).to.be.revertedWith('AMA already revealed')
+        amaMatcher.connect(owner).revealMatches(amaId, correctMatchesRoot),
+      ).to.be.revertedWith('AMA not finalized')
     })
   })
 })

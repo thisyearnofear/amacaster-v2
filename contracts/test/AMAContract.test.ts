@@ -3,6 +3,7 @@ import { ethers } from 'hardhat'
 import { loadFixture } from '@nomicfoundation/hardhat-toolbox/network-helpers'
 import { AMAContract } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { EventLog } from 'ethers'
 
 describe('AMAContract', function () {
   async function deployContractFixture() {
@@ -15,183 +16,156 @@ describe('AMAContract', function () {
   }
 
   // Test data
-  const testAmaId =
-    '0x1234567890123456789012345678901234567890123456789012345678901234'
   const testFid = 378
-  const testMatch = {
-    questionHash:
-      '0x1234567890123456789012345678901234567890123456789012345678901234',
-    answerHash:
-      '0x2345678901234567890123456789012345678901234567890123456789012345',
-    ranking: 1,
-    questionContent: {
-      text: 'Test question?',
-      cast_id: 'cast_123',
-      timestamp: Math.floor(Date.now() / 1000),
-      author: {
-        fid: testFid,
-        username: 'testuser',
-      },
-    },
-    answerContent: {
-      text: 'Test answer',
-      cast_id: 'cast_456',
-      timestamp: Math.floor(Date.now() / 1000),
-      author: {
-        fid: testFid + 1,
-        username: 'answerer',
-      },
-    },
-    category: 'test',
-    tags: ['test', 'example'],
-    quality_signals: {
-      relevance_score: 0.8,
-      engagement_score: 0.7,
-      curator_notes: 'Good Q&A pair',
-    },
-  }
+  const testTitle = 'Test AMA'
+  const testDescription = 'Test Description'
+  const testStartTime = Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+  const testEndTime = testStartTime + 7200 // 2 hours after start
+  const testMinQualityScore = 7000 // 70%
 
-  const testMetadata = {
-    timestamp: Math.floor(Date.now() / 1000),
-    version: 1,
-    submitter_fid: testFid.toString(),
-    ama_title: 'Test AMA',
-    ama_host: 'Test Host',
-    curation_criteria: {
-      focus_topics: ['test'],
-      quality_threshold: 0.7,
-      curation_guidelines: 'Select good Q&As',
-    },
-  }
+  describe('Contract Submission', function () {
+    it('Should allow users to submit contracts', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
 
-  describe('Registration', function () {
+      // Register FID first
+      await contract.connect(user1).registerFid(testFid)
+
+      const tx = await contract
+        .connect(user1)
+        .submitContract(
+          testTitle,
+          testDescription,
+          testStartTime,
+          testEndTime,
+          testMinQualityScore,
+          { value: ethers.parseEther('0.1') },
+        )
+
+      const receipt = await tx.wait()
+      const event = receipt?.logs.find(
+        (log): log is EventLog =>
+          log instanceof EventLog && log.eventName === 'ContractSubmitted',
+      )
+      expect(event).to.not.be.undefined
+
+      const contractId = event?.args[0]
+      expect(contractId).to.not.be.undefined
+
+      // Verify contract details
+      const details = await contract.getContractDetails(contractId)
+      expect(details.fid).to.equal(testFid)
+      expect(details.title).to.equal(testTitle)
+      expect(details.description).to.equal(testDescription)
+      expect(details.startTime).to.equal(testStartTime)
+      expect(details.endTime).to.equal(testEndTime)
+      expect(details.minQualityScore).to.equal(testMinQualityScore)
+      expect(details.state).to.equal(0) // Initial state
+      expect(details.participantCount).to.equal(0)
+      expect(details.questionCount).to.equal(0)
+      expect(details.matchCount).to.equal(0)
+    })
+
+    it('Should reject contracts with invalid time parameters', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+
+      await contract.connect(user1).registerFid(testFid)
+
+      // Test past start time
+      const pastStartTime = Math.floor(Date.now() / 1000) - 3600
+      await expect(
+        contract
+          .connect(user1)
+          .submitContract(
+            testTitle,
+            testDescription,
+            pastStartTime,
+            testEndTime,
+            testMinQualityScore,
+          ),
+      ).to.be.revertedWith('Invalid start time')
+
+      // Test end time before start time
+      const invalidEndTime = testStartTime - 3600
+      await expect(
+        contract
+          .connect(user1)
+          .submitContract(
+            testTitle,
+            testDescription,
+            testStartTime,
+            invalidEndTime,
+            testMinQualityScore,
+          ),
+      ).to.be.revertedWith('Invalid end time')
+    })
+  })
+
+  describe('FID Registration', function () {
     it('Should allow users to register their FID', async function () {
       const { contract, user1 } = await loadFixture(deployContractFixture)
+
       await expect(contract.connect(user1).registerFid(testFid))
         .to.emit(contract, 'FidRegistered')
         .withArgs(user1.address, testFid)
+
+      // Verify registration
+      const userContracts = await contract.getUserContracts(testFid)
+      expect(userContracts).to.be.an('array')
     })
 
-    it('Should not allow duplicate FID registration', async function () {
-      const { contract, user1, user2 } = await loadFixture(
-        deployContractFixture,
-      )
+    it('Should not allow duplicate FID registrations', async function () {
+      const { contract, user1 } = await loadFixture(deployContractFixture)
+
       await contract.connect(user1).registerFid(testFid)
       await expect(
-        contract.connect(user2).registerFid(testFid),
+        contract.connect(user1).registerFid(testFid + 1),
       ).to.be.revertedWith('FID already registered')
     })
   })
 
-  describe('Contract Submission', function () {
-    it('Should allow registered users to submit contracts', async function () {
+  describe('Contract Details Retrieval', function () {
+    it('Should return correct contract details', async function () {
       const { contract, user1 } = await loadFixture(deployContractFixture)
+
       await contract.connect(user1).registerFid(testFid)
-
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await expect(
-        contract.connect(user1).submitContract(testAmaId, merkleRoot, ipfsHash),
-      )
-        .to.emit(contract, 'ContractSubmitted')
-        .withArgs(user1.address, testAmaId, merkleRoot, ipfsHash)
-    })
-
-    it('Should not allow unregistered users to submit contracts', async function () {
-      const { contract, user1 } = await loadFixture(deployContractFixture)
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await expect(
-        contract.connect(user1).submitContract(testAmaId, merkleRoot, ipfsHash),
-      ).to.be.revertedWith('FID not registered')
-    })
-  })
-
-  describe('Contract Verification', function () {
-    it('Should correctly verify submitted contracts', async function () {
-      const { contract, user1 } = await loadFixture(deployContractFixture)
-      await contract.connect(user1).registerFid(testFid)
-
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await contract
+      const tx = await contract
         .connect(user1)
-        .submitContract(testAmaId, merkleRoot, ipfsHash)
+        .submitContract(
+          testTitle,
+          testDescription,
+          testStartTime,
+          testEndTime,
+          testMinQualityScore,
+          { value: ethers.parseEther('0.1') },
+        )
 
-      const submittedContract = await contract.getContract(testAmaId)
-      expect(submittedContract.merkleRoot).to.equal(merkleRoot)
-      expect(submittedContract.ipfsHash).to.equal(ipfsHash)
+      const receipt = await tx.wait()
+      const event = receipt?.logs.find(
+        (log): log is EventLog =>
+          log instanceof EventLog && log.eventName === 'ContractSubmitted',
+      )
+      const contractId = event?.args[0]
+
+      const details = await contract.getContractDetails(contractId)
+      expect(details.fid).to.equal(testFid)
+      expect(details.title).to.equal(testTitle)
+      expect(details.description).to.equal(testDescription)
+      expect(details.startTime).to.equal(testStartTime)
+      expect(details.endTime).to.equal(testEndTime)
+      expect(details.minQualityScore).to.equal(testMinQualityScore)
+      expect(details.rewardPool).to.equal(ethers.parseEther('0.1'))
+      expect(details.createdAt).to.be.gt(0)
     })
 
-    it('Should return correct user contracts', async function () {
-      const { contract, user1 } = await loadFixture(deployContractFixture)
-      await contract.connect(user1).registerFid(testFid)
+    it('Should return empty details for non-existent contracts', async function () {
+      const { contract } = await loadFixture(deployContractFixture)
 
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await contract
-        .connect(user1)
-        .submitContract(testAmaId, merkleRoot, ipfsHash)
-
-      const userContracts = await contract.getUserContracts(testFid)
-      expect(userContracts).to.include(testAmaId)
-    })
-  })
-
-  describe('Participation', function () {
-    it('Should allow users to participate in contracts', async function () {
-      const { contract, user1, user2 } = await loadFixture(
-        deployContractFixture,
-      )
-      await contract.connect(user1).registerFid(testFid)
-
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await contract
-        .connect(user1)
-        .submitContract(testAmaId, merkleRoot, ipfsHash)
-
-      await expect(contract.connect(user2).participate(testAmaId))
-        .to.emit(contract, 'UserParticipated')
-        .withArgs(user2.address, testAmaId)
-    })
-
-    it('Should track participation correctly', async function () {
-      const { contract, user1, user2 } = await loadFixture(
-        deployContractFixture,
-      )
-      await contract.connect(user1).registerFid(testFid)
-
-      const merkleRoot =
-        '0x1234567890123456789012345678901234567890123456789012345678901234'
-      const ipfsHash =
-        '0x2345678901234567890123456789012345678901234567890123456789012345'
-
-      await contract
-        .connect(user1)
-        .submitContract(testAmaId, merkleRoot, ipfsHash)
-      await contract.connect(user2).participate(testAmaId)
-
-      const hasParticipated = await contract.hasParticipated(
-        user2.address,
-        testAmaId,
-      )
-      expect(hasParticipated).to.be.true
+      const nonExistentId = ethers.id('non-existent')
+      const details = await contract.getContractDetails(nonExistentId)
+      expect(details.fid).to.equal(0)
+      expect(details.title).to.equal('')
+      expect(details.description).to.equal('')
+      expect(details.rewardPool).to.equal(0)
     })
   })
 })

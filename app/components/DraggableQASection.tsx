@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from '@hello-pangea/dnd'
 import type { Cast, NeynarUser } from '../types'
 import SafeImage from './SafeImage'
 import { useMatchSubmission } from '../hooks/useMatchSubmission'
@@ -12,6 +17,7 @@ import { type Match } from '../utils/matchSubmission'
 import { keccak256, encodeAbiParameters, parseAbiParameters } from 'viem'
 import DraftControls from './DraftControls'
 import { toast } from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 // Import styles in a way that works with Next.js
 import 'slick-carousel/slick/slick.css'
@@ -117,6 +123,8 @@ export default function DraggableQASection({
   const canDragAndDrop = isLoggedIn
   const isSubmitted = state.isDraft === false
 
+  const router = useRouter()
+
   // Add connection check to submit handler
   const handleSubmit = useCallback(async () => {
     if (!isConnected) {
@@ -147,9 +155,9 @@ export default function DraggableQASection({
         throw new Error('No matches to submit')
       }
 
-      // Filter out unmatched questions and answers and limit to top 5
+      // Filter out unmatched questions and answers and limit to top 2
       const matches = localSecondTier
-        .slice(0, 5) // Only take first 5 pairs
+        .slice(0, 2) // Only take first 2 pairs
         .map((question, index) => {
           const answer = localThirdTier[index]
           if (!answer) return []
@@ -168,19 +176,6 @@ export default function DraggableQASection({
                   : (`0x${stackedAnswer.hash
                       .slice(2)
                       .padStart(64, '0')}` as `0x${string}`)
-
-              // Add debug logging
-              console.log('Question data:', {
-                text: question.text,
-                hash: question.hash,
-                author: question.author,
-                timestamp: question.timestamp,
-                authorFields: {
-                  fid: question.author.fid,
-                  fname: question.author.fname,
-                  username: question.author.fname, // Using fname as username
-                },
-              })
 
               const matchData = {
                 questionHash: paddedQuestionHash,
@@ -274,8 +269,8 @@ export default function DraggableQASection({
         throw new Error('No valid matches to submit')
       }
 
-      if (matches.length > 5) {
-        matches.length = 5 // Ensure we only submit 5 matches even if more are constructed
+      if (matches.length > 2) {
+        matches.length = 2 // Ensure we only submit 2 matches even if more are constructed
       }
 
       const result = await submit(matches)
@@ -496,28 +491,88 @@ export default function DraggableQASection({
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination || !canDragAndDrop) return
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination || !canDragAndDrop) return
 
-    const sourceList =
-      result.source.droppableId === 'questions'
-        ? localSecondTier
-        : localThirdTier
-    const destList =
-      result.destination.droppableId === 'questions'
-        ? localSecondTier
-        : localThirdTier
+      const { source, destination } = result
 
-    const [removed] = sourceList.splice(result.source.index, 1)
-    destList.splice(result.destination.index, 0, removed)
+      // Get the current tier based on the source droppable
+      const sourceTier =
+        source.droppableId === 'second-tier'
+          ? localSecondTier
+          : source.droppableId === 'third-tier'
+          ? localThirdTier
+          : null
 
-    if (result.source.droppableId === 'questions') {
-      setLocalSecondTier([...localSecondTier])
-    } else {
-      setLocalThirdTier([...localThirdTier])
-    }
-    onOrderChange(localSecondTier, localThirdTier)
-  }
+      // Get the destination tier based on the destination droppable
+      const destinationTier =
+        destination.droppableId === 'second-tier'
+          ? localSecondTier
+          : destination.droppableId === 'third-tier'
+          ? localThirdTier
+          : null
+
+      if (!sourceTier || !destinationTier) return
+
+      // Check if we're trying to add more than 2 pairs
+      if (
+        destination.droppableId === 'second-tier' &&
+        source.droppableId !== 'second-tier' &&
+        localSecondTier.length >= 2
+      ) {
+        toast.error('You can only select up to 2 Q&A pairs')
+        return
+      }
+
+      if (
+        destination.droppableId === 'third-tier' &&
+        source.droppableId !== 'third-tier' &&
+        localThirdTier.length >= 2
+      ) {
+        toast.error('You can only select up to 2 Q&A pairs')
+        return
+      }
+
+      // Create a copy of the source array
+      const newSourceItems = Array.from(sourceTier)
+      // Remove the dragged item
+      const [removed] = newSourceItems.splice(source.index, 1)
+
+      // If source and destination are the same, reorder within the same array
+      if (source.droppableId === destination.droppableId) {
+        newSourceItems.splice(destination.index, 0, removed)
+        if (source.droppableId === 'second-tier') {
+          setLocalSecondTier(newSourceItems as Cast[])
+        } else {
+          setLocalThirdTier(newSourceItems as AnswerEntry[])
+        }
+      } else {
+        // Moving between different lists
+        const newDestItems = Array.from(destinationTier)
+        newDestItems.splice(destination.index, 0, removed)
+
+        if (source.droppableId === 'second-tier') {
+          setLocalSecondTier(newSourceItems as Cast[])
+          setLocalThirdTier(newDestItems as AnswerEntry[])
+        } else {
+          setLocalSecondTier(newDestItems as Cast[])
+          setLocalThirdTier(newSourceItems as AnswerEntry[])
+        }
+      }
+
+      // Notify parent of the change
+      onOrderChange(
+        source.droppableId === 'second-tier'
+          ? (newSourceItems as Cast[])
+          : localSecondTier,
+        source.droppableId === 'third-tier'
+          ? (newSourceItems as AnswerEntry[])
+          : localThirdTier,
+      )
+    },
+    [canDragAndDrop, localSecondTier, localThirdTier, onOrderChange],
+  )
 
   const handleQuickMove = (
     type: 'question' | 'answer' | 'pair',
@@ -777,7 +832,7 @@ export default function DraggableQASection({
                       }
                       disabled={currentAnswerIndex === entry.answers.length - 1}
                     >
-                      ›
+                      ��
                     </button>
                   </div>
                 </div>
@@ -1367,7 +1422,7 @@ export default function DraggableQASection({
           contractLink: state.submissionDetails?.transactionHash,
         }
       }
-      return { text: 'Ready to submit your top 5 matches?', color: 'gray' }
+      return { text: 'Ready to submit your top 2 matches?', color: 'gray' }
     }
 
     const status = getStatusMessage()
@@ -1469,7 +1524,7 @@ export default function DraggableQASection({
                 ? 'Submitted!'
                 : submitError
                 ? 'Try Again'
-                : 'Submit Top 5 Matches'}
+                : 'Submit Top 2 Matches'}
             </button>
           </div>
         </div>

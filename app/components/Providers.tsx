@@ -14,7 +14,7 @@ import { useState } from 'react'
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID!
 
 const { wallets } = getDefaultWallets({
-  appName: 'Amacaster',
+  appName: 'Amacast',
   projectId,
 })
 
@@ -52,7 +52,7 @@ const storage = createStorage({
 })
 
 const config = getDefaultConfig({
-  appName: 'Amacaster',
+  appName: 'Amacast',
   projectId,
   chains: [optimismSepolia, mainnet, optimism],
   transports: {
@@ -86,7 +86,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider showRecentTransactions={true} coolMode={true}>
+        <RainbowKitProvider
+          showRecentTransactions={true}
+          modalSize="compact"
+          appInfo={{
+            appName: 'Amacast',
+            learnMoreUrl: 'https://amacast.netlify.app',
+          }}
+        >
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
