@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Card } from './common/Card'
 
 interface FeaturedProfile {
   username: string
@@ -74,12 +75,8 @@ export function ProfilesSection() {
       {/* Featured Profiles */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {FEATURED_PROFILES.map((profile) => (
-          <Link
-            key={profile.fid}
-            href={`/profile/${profile.fid}`}
-            className="block bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-          >
-            <div className="p-6">
+          <Link key={profile.fid} href={`/profile/${profile.fid}`}>
+            <Card className="hover:shadow-xl transition-shadow">
               <div className="flex items-center gap-4">
                 <div className="relative w-16 h-16">
                   <Image
@@ -102,7 +99,7 @@ export function ProfilesSection() {
                   )}
                 </div>
               </div>
-            </div>
+            </Card>
           </Link>
         ))}
       </div>
@@ -111,12 +108,8 @@ export function ProfilesSection() {
       {searchResults.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {searchResults.map((result) => (
-            <Link
-              key={result.fid}
-              href={`/profile/${result.fid}`}
-              className="block bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <div className="p-6">
+            <Link key={result.fid} href={`/profile/${result.fid}`}>
+              <Card className="hover:shadow-xl transition-shadow">
                 <div className="flex items-center gap-4">
                   <div className="relative w-16 h-16">
                     <Image
@@ -138,7 +131,7 @@ export function ProfilesSection() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             </Link>
           ))}
         </div>

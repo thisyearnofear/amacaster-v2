@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useAMAContract } from '../hooks/useAMAContract'
 import { parseEther, type TransactionReceipt } from 'viem'
 import { useWaitForTransactionReceipt } from 'wagmi'
+import { Card } from './common/Card'
+import { ErrorMessage } from './common/ErrorMessage'
 
 interface ContractSubmissionProps {
   onSuccess?: () => void
@@ -82,14 +84,8 @@ export function ContractSubmission({
   const isSubmitting = loading || isContractLoading || isWaiting
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-6">Submit AMA Contract</h2>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-          {error}
-        </div>
-      )}
+    <Card title="Submit AMA Contract">
+      {error && <ErrorMessage>{error}</ErrorMessage>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -190,6 +186,6 @@ export function ContractSubmission({
           </p>
         )}
       </form>
-    </div>
+    </Card>
   )
 }

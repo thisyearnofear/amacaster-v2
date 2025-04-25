@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useIPCM } from '../hooks/useIPCM'
 import { uploadMatchesToIPFS } from '../utils/ipfs'
 import type { IPFSMatchData } from '../utils/ipfs'
+import { ErrorMessage } from './common/ErrorMessage'
+import { Card } from './common/Card'
 
 interface MatchSubmissionProps {
   matchData: IPFSMatchData
@@ -43,7 +45,7 @@ export function MatchSubmission({
   }
 
   return (
-    <div className="space-y-6">
+    <Card title="Submit Matches" className="space-y-6">
       {/* Match Summary Card */}
       <div className="bg-gray-50 rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-4">
@@ -70,11 +72,7 @@ export function MatchSubmission({
       </div>
 
       {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage>{error}</ErrorMessage>}
 
       {/* Submit Button */}
       <button
@@ -110,6 +108,6 @@ export function MatchSubmission({
           'Submit Matches'
         )}
       </button>
-    </div>
+    </Card>
   )
 }

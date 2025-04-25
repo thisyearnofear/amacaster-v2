@@ -5,15 +5,13 @@ import { Match } from '../hooks/useMatches'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { FeaturedQASubmission } from './FeaturedQASubmission'
+import { Card } from './common/Card'
 
 export function MatchHistory({ matches }: { matches: Match[] }) {
   return (
     <div className="space-y-6">
       {matches.map((match) => (
-        <div
-          key={match.id}
-          className="bg-white rounded-lg shadow-sm p-6 space-y-4"
-        >
+        <Card key={match.id} className="space-y-4">
           {/* Question */}
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -74,7 +72,7 @@ export function MatchHistory({ matches }: { matches: Match[] }) {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   )

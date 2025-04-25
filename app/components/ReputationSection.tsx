@@ -1,4 +1,5 @@
 import { UserReputation } from '../hooks/useAMAContract'
+import { Card } from './common/Card'
 
 interface ReputationSectionProps {
   reputation?: UserReputation
@@ -11,23 +12,23 @@ export function ReputationSection({
 }: ReputationSectionProps) {
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+      <Card className="animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
         <div className="space-y-3">
           <div className="h-4 bg-gray-200 rounded w-3/4"></div>
           <div className="h-4 bg-gray-200 rounded w-2/3"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2"></div>
         </div>
-      </div>
+      </Card>
     )
   }
 
   if (!reputation) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <Card>
         <h2 className="text-xl font-bold mb-4">Reputation</h2>
         <p className="text-gray-500">No reputation data available</p>
-      </div>
+      </Card>
     )
   }
 
@@ -35,7 +36,7 @@ export function ReputationSection({
   const cooldownRemaining = getCooldownRemaining(reputation.cooldownPeriod)
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <Card>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Reputation</h2>
         <span className="text-3xl">
@@ -83,7 +84,7 @@ export function ReputationSection({
           ))}
         </ul>
       </div>
-    </div>
+    </Card>
   )
 }
 

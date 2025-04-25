@@ -5,6 +5,8 @@ import { useMatches, type Match } from '../hooks/useMatches'
 import { MatchHistory } from './MatchHistory'
 import Link from 'next/link'
 import IconImage from './IconImage'
+import { Card } from './common/Card'
+import { ErrorMessage } from './common/ErrorMessage'
 
 // Import featured AMAs from home page
 const hostLinks = [
@@ -60,7 +62,7 @@ const ProfileHeader = ({ profile }: ProfileHeaderProps) => {
   const followingCount = farcasterProfile?.social?.following || 0
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+    <Card className="mb-8">
       <div className="flex items-start gap-6">
         {profile.avatar && (
           <img
@@ -105,7 +107,7 @@ const ProfileHeader = ({ profile }: ProfileHeaderProps) => {
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -125,16 +127,16 @@ const ProfileMetrics = ({
 
   return (
     <div className="grid grid-cols-2 gap-4 mb-8">
-      <div className="p-4 bg-white rounded-lg shadow-sm">
+      <Card className="p-4 mb-8">
         <h3 className="text-lg font-semibold text-gray-900">Questions</h3>
         <p className="text-3xl font-bold text-indigo-600">{usefulQuestions}</p>
         <p className="text-sm text-gray-500">Others found useful</p>
-      </div>
-      <div className="p-4 bg-white rounded-lg shadow-sm">
+      </Card>
+      <Card className="p-4">
         <h3 className="text-lg font-semibold text-gray-900">Answers</h3>
         <p className="text-3xl font-bold text-indigo-600">{usefulAnswers}</p>
         <p className="text-sm text-gray-500">Others found useful</p>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -179,14 +181,15 @@ const FeaturedAMAs = () => {
 }
 
 const EmptyState = () => (
-  <div className="text-center py-12 bg-white rounded-lg shadow-sm mb-8">
+  <Card className="text-center py-12 mb-8">
     <p className="text-gray-500">No q&amp;a&apos;s here ... yet</p>
-  </div>
+  </Card>
 )
 
 export default function ProfileClient({ fid }: { fid: string }) {
   const { profile, loading: isLoadingProfile } = useWeb3BioProfile(fid)
-  const { data: matches = [], isLoading: isLoadingMatches } = useMatches(fid)
+  const { matches: rawMatches, loading: isLoadingMatches } = useMatches(fid)
+  const matches: Match[] = rawMatches ?? []
 
   // Filter matches to only include Q&As where this profile is involved
   const profileMatches = matches.filter(
@@ -243,7 +246,7 @@ export default function ProfileClient({ fid }: { fid: string }) {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {isLoadingProfile || isLoadingMatches ? (
-        <div className="text-center py-12">Loading...</div>
+        <Card className="text-center py-12">Loading...</Card>
       ) : (
         <>
           <ProfileHeader profile={profile} />
@@ -266,11 +269,11 @@ export default function ProfileClient({ fid }: { fid: string }) {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               Featured Q&As
             </h2>
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <Card className="p-6 mb-8">
               <p className="text-gray-500 text-center">
                 Coming soon - on-chain featured Q&As
               </p>
-            </div>
+            </Card>
           </div>
 
           <FeaturedAMAs />

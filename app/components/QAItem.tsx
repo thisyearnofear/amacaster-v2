@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { formatDate } from '../utils/formatDate'
 import type { QAItemProps } from '../types'
+import { Card } from './common/Card'
 
 const QAItem = memo(
   ({
@@ -21,7 +22,7 @@ const QAItem = memo(
     }
 
     return (
-      <div className="space-y-6 w-full pointer-events-none">
+      <Card className="space-y-6 w-full pointer-events-none p-0 shadow-none">
         {/* Question - Left side */}
         <div className="flex items-start gap-3 max-w-[80%]">
           <div
@@ -178,7 +179,7 @@ const QAItem = memo(
             ))}
           </div>
         )}
-      </div>
+      </Card>
     )
   },
 )

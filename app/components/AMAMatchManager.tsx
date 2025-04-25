@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MatchSubmission } from './MatchSubmission'
 import { IPFSHistory } from './IPFSHistory'
 import type { IPFSMatchData } from '../utils/ipfs'
+import { Card } from './common/Card'
 
 interface AMAMatchManagerProps {
   amaId: string
@@ -17,7 +18,7 @@ export function AMAMatchManager({
   const [activeTab, setActiveTab] = useState<'submit' | 'history'>('submit')
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm ${className}`}>
+    <Card className={className}>
       {/* Tab Navigation */}
       <div className="flex border-b border-gray-100">
         <button
@@ -63,6 +64,6 @@ export function AMAMatchManager({
           <IPFSHistory amaId={amaId} />
         )}
       </div>
-    </div>
+    </Card>
   )
 }

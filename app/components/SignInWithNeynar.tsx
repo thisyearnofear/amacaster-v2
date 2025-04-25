@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
-import { type NeynarSignInResponse, type NeynarUser } from '../types/neynar'
+import { type NeynarSignInResponse } from '../types/neynar'
+import { ErrorMessage } from './common/ErrorMessage'
+import { Card } from './common/Card'
 
 interface SignInWithNeynarProps {
   onSignInSuccess?: (data: NeynarSignInResponse) => void
@@ -77,12 +79,12 @@ export function SignInWithNeynar({ onSignInSuccess }: SignInWithNeynarProps) {
   }
 
   if (error) {
-    return <div className="text-red-500 text-sm mb-4">Error: {error}</div>
+    return <ErrorMessage>Error: {error}</ErrorMessage>
   }
 
   if (user) {
     return (
-      <div className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-between gap-2">
+      <Card className="px-4 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Image
             src={user.user.pfp?.url || '/default-avatar.png'}
@@ -100,7 +102,7 @@ export function SignInWithNeynar({ onSignInSuccess }: SignInWithNeynarProps) {
         >
           Sign Out
         </button>
-      </div>
+      </Card>
     )
   }
 

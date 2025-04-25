@@ -19,6 +19,8 @@ import DraftControls from './DraftControls'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { VersionHistoryModal } from './VersionHistoryModal'
+import { Card } from './common/Card'
+import { ErrorMessage } from './common/ErrorMessage'
 
 // Import styles in a way that works with Next.js
 import 'slick-carousel/slick/slick.css'
@@ -1431,7 +1433,7 @@ export default function DraggableQASection({
     const status = getStatusMessage()
 
     return (
-      <div className="submit-section fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
+      <Card className="submit-section fixed bottom-0 left-0 right-0 border-t border-gray-200 z-50 p-4">
         <div className="max-w-5xl mx-auto">
           {/* Status Messages */}
           <div className="mb-3">
@@ -1556,7 +1558,7 @@ export default function DraggableQASection({
             </div>
           </div>
         </div>
-      </div>
+      </Card>
     )
   }
 

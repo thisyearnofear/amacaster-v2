@@ -1,14 +1,19 @@
 import axios from 'axios'
 
-const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT
-const PINATA_GATEWAY = process.env.NEXT_PUBLIC_PINATA_GATEWAY
-
-if (!PINATA_JWT) {
-  throw new Error('PINATA_JWT environment variable is not set')
+function getPinataJwt(): string {
+  const jwt = process.env.PINATA_JWT
+  if (!jwt) {
+    throw new Error('PINATA_JWT environment variable is not set')
+  }
+  return jwt
 }
 
-if (!PINATA_GATEWAY) {
-  throw new Error('PINATA_GATEWAY environment variable is not set')
+function getPinataGateway(): string {
+  const gateway = process.env.PINATA_GATEWAY
+  if (!gateway) {
+    throw new Error('PINATA_GATEWAY environment variable is not set')
+  }
+  return gateway
 }
 
 /**
@@ -18,13 +23,14 @@ if (!PINATA_GATEWAY) {
  */
 export async function pinJSONToIPFS(jsonData: any): Promise<string> {
   try {
+    const jwt = getPinataJwt()
     const response = await axios.post(
       'https://api.pinata.cloud/pinning/pinJSONToIPFS',
       jsonData,
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${PINATA_JWT}`,
+          Authorization: `Bearer ${jwt}`,
         },
       },
     )
@@ -43,7 +49,8 @@ export async function pinJSONToIPFS(jsonData: any): Promise<string> {
  */
 export async function getFromIPFS(hash: string): Promise<any> {
   try {
-    const response = await axios.get(`${PINATA_GATEWAY}/ipfs/${hash}`)
+    const gateway = getPinataGateway()
+    const response = await axios.get(`${gateway}/ipfs/${hash}`)
     return response.data
   } catch (error) {
     console.error('Error getting from IPFS:', error)
@@ -57,13 +64,14 @@ export async function getFromIPFS(hash: string): Promise<any> {
  */
 export async function unpinFromIPFS(hash: string): Promise<void> {
   try {
+    const jwt = getPinataJwt()
     await axios.delete(`https://api.pinata.cloud/pinning/unpin/${hash}`, {
       headers: {
-        Authorization: `Bearer ${PINATA_JWT}`,
+        Authorization: `Bearer ${jwt}`,
       },
     })
   } catch (error) {
     console.error('Error unpinning from IPFS:', error)
     throw new Error('Failed to unpin content from IPFS')
   }
-} 
+}

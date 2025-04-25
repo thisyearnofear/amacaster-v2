@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { type Match } from '../utils/matchSubmission'
 import { useAccount } from 'wagmi'
 import { optimismSepolia } from 'viem/chains'
+import { Card } from './common/Card'
 
 interface DraftControlsProps {
   state: {
@@ -59,7 +60,7 @@ export default function DraftControls({
 
   if (isInline) {
     return (
-      <div className="flex items-center gap-3">
+      <Card className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg shadow">
         <div className="flex-shrink-0">
           <button
             onClick={handleSaveDraft}
@@ -89,12 +90,12 @@ export default function DraftControls({
           </div>
         )}
         <div className="flex-grow text-right">{renderTimestamps()}</div>
-      </div>
+      </Card>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg shadow">
+    <Card className="flex flex-col gap-4 p-4 bg-gray-50">
       <div className="flex flex-col gap-2">{renderTimestamps()}</div>
 
       <div className="flex gap-3">
@@ -124,6 +125,6 @@ export default function DraftControls({
           </button>
         )}
       </div>
-    </div>
+    </Card>
   )
 }
