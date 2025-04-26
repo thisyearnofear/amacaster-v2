@@ -1,23 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
-import { getNeynarClient } from '@/lib/neynarClient'
 
+// Client-side Neynar calls moved to backend API routes
 export function useAMA(url: string) {
-  const neynarClient = getNeynarClient()
   return useQuery({
     queryKey: ['ama', url],
     queryFn: async () => {
-      const mainCastResponse = await neynarClient.lookupCastByUrl(url)
-      const mainCast = mainCastResponse.result.cast
-      const threadResponse = await neynarClient.fetchThread(
-        mainCast.thread_hash,
-      )
+      // Fetch main cast via backend
+      const mainRes = await fetch(`/api/fetchCast?url=${encodeURIComponent(url)}`)
+      if (!mainRes.ok) throw new Error(`Failed to fetch cast: ${mainRes.statusText}`)
+      const mainData = await mainRes.json()
+      const mainCast = mainData.result.cast
 
-      return {
-        mainCast,
-        thread: threadResponse.result.casts,
-      }
+      // Fetch thread via backend
+      const threadRes = await fetch(
+        `/api/fetchThread?threadHash=${encodeURIComponent(mainCast.thread_hash)}`
+      )
+      if (!threadRes.ok) throw new Error(`Failed to fetch thread: ${threadRes.statusText}`)
+      const threadData = await threadRes.json()
+      const thread = threadData.result.casts
+
+      return { mainCast, thread }
     },
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes (renamed from cacheTime)
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000,
   })
 }

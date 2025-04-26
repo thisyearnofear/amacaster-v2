@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getNeynarClient } from '../../lib/neynarClient'
 import DraggableQASection, {
   isAnswerStack,
 } from '../components/DraggableQASection'
@@ -81,20 +80,17 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         console.log('Search params type:', typeof searchParams)
 
         // Try getting URL from different methods
-        const urlFromParams = searchParams['url']
+        const rawUrl = searchParams['url']
         const urlFromSearchParams = new URLSearchParams(
           window.location.search,
         ).get('url')
-
-        console.log('URL from searchParams:', urlFromParams)
-        console.log('URL from window.location:', urlFromSearchParams)
-
-        // Use the URL from either source
-        const url = urlFromParams || urlFromSearchParams
+        const url: string = Array.isArray(rawUrl)
+          ? rawUrl[0]
+          : rawUrl ?? urlFromSearchParams ?? ''
 
         if (!url || typeof url !== 'string') {
           console.error('Invalid URL parameter:', {
-            fromParams: urlFromParams,
+            fromParams: rawUrl,
             fromLocation: urlFromSearchParams,
             fullUrl: window.location.href,
           })
@@ -104,25 +100,11 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         }
 
         console.log('Using URL for fetch:', url)
-        console.log('Initializing Neynar client...')
 
-        if (!process.env.NEXT_PUBLIC_NEYNAR_API_KEY) {
-          throw new Error('NEXT_PUBLIC_NEYNAR_API_KEY is not set')
-        }
-
-        const neynarClient = getNeynarClient()
-        console.log('Neynar client initialized successfully')
-
-        // Make single API call for main cast
-        console.log('Fetching main cast...')
-        const mainCastResponse = await neynarClient.lookupCastByUrl(url)
-        if (!mainCastResponse?.result?.cast) {
-          console.error('Main cast response invalid:', mainCastResponse)
-          throw new Error('Failed to fetch main cast')
-        }
-        console.log('Main cast fetched successfully')
-
-        const fetchedMainCast = mainCastResponse.result.cast
+        // Fetch main cast via backend API
+        const mainRes = await fetch(`/api/fetchCast?url=${encodeURIComponent(url)}`)
+        if (!mainRes.ok) throw new Error(`Failed to fetch cast: ${mainRes.statusText}`)
+        const { result: { cast: fetchedMainCast } } = await mainRes.json()
         setMainCast(fetchedMainCast)
 
         // Transform and set users
@@ -135,23 +117,21 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         setHostUser(fetchedAmaUser)
         setGuestUser(fetchedGuestUser)
 
-        // Use the result for thread fetch
-        const threadResponse = await neynarClient.fetchThread(
-          fetchedMainCast.thread_hash,
-        )
-        if (!threadResponse?.result?.casts) {
-          throw new Error('Failed to fetch thread')
-        }
-
-        const casts = threadResponse.result.casts
-          .filter((cast) => cast && typeof cast === 'object')
+        // Fetch thread via backend API
+        const threadRes = await fetch(`/api/fetchThread?threadHash=${encodeURIComponent(fetchedMainCast.thread_hash)}`)
+        if (!threadRes.ok) throw new Error(`Failed to fetch thread: ${threadRes.statusText}`)
+        // Parse and type the raw casts from our backend for proper typing
+        const threadJson = (await threadRes.json()) as { result: { casts: NeynarCast[] } }
+        const rawCasts = threadJson.result.casts
+        const casts = rawCasts
+          .filter((cast: NeynarCast) => cast && typeof cast === 'object')
           .map(transformNeynarCast)
 
         // Separate responses into second and third tier based on AMA user
         const secondTierResponses: Cast[] = []
         const thirdTierResponses: AnswerEntry[] = []
 
-        casts.forEach((cast) => {
+        casts.forEach((cast: Cast) => {
           if (cast.hash === fetchedMainCast.hash) return // Skip the main cast
 
           // Check if the cast is from the AMA user by comparing both username and fname

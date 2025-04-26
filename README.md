@@ -98,8 +98,13 @@ NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt
 NEXT_PUBLIC_PINATA_GATEWAY=your_gateway_url
 NEXT_PUBLIC_AMA_CONTRACT_ADDRESS=contract_address
 NEXT_PUBLIC_CHAIN_ID=11155420  # Optimism Sepolia
-NEXT_PUBLIC_NEYNAR_API_KEY=your_neynar_key
+NEXT_PUBLIC_NEYNAR_CLIENT_ID=your_neynar_client_id
+NEYNAR_API_KEY=your_neynar_key
 ```
+
+- `NEYNAR_API_KEY` is **server-only** and should NOT be exposed to the client.
+- `NEXT_PUBLIC_NEYNAR_CLIENT_ID` is safe for the client and used for OAuth flows.
+
 
 ### Installation
 
@@ -119,6 +124,44 @@ yarn install
 yarn compile
 yarn deploy:optimism
 ```
+
+## Refactor Roadmap: Farcaster Integration
+
+- Audit current Farcaster/Neynar API usage: replace direct REST calls with `@neynar/nodejs-sdk` for consistency and type safety.
+- Identify privileged actions requiring API key (e.g., posting casts, user auth) and move them to backend Next.js API routes under `/pages/api`.
+- Create server-side endpoints (e.g., `/api/fetchCast`, `/api/fetchThread`, `/api/authUser`) using secure environment variable `NEYNAR_API_KEY` (no client exposure).
+- Refactor frontend hooks (`useAMA`, `useNeynarUser`, etc.) to call new backend endpoints instead of direct SDK or fetch calls.
+- Remove `NEXT_PUBLIC_NEYNAR_API_KEY` from client `.env.local`; configure only `NEYNAR_API_KEY` on server environment.
+- Leverage the active Neynar MCP server:
+  - Use `mcp search` to find SDK examples and official docs.
+  - Prompt MCP to scaffold API routes and generate integration tests.
+
+## Neynar MCP Server Setup
+
+The Neynar MCP server enables AI-powered development, documentation lookup, and code generation for Farcaster/Neynar integrations.
+
+### How to Use
+
+1. **Install MCP (if not already):**
+   - Clone the [Mintlify MCP repo](https://github.com/mintlify/mcp) or use the prebuilt Neynar MCP server.
+2. **Start the MCP server:**
+   ```bash
+   node ~/.mcp/neynar/src/index.js
+   ```
+   - You should see: `MCP Server running on stdio`
+3. **Integration with Cascade:**
+   - Cascade will automatically use the MCP server for documentation search, code generation, and integration test scaffolding.
+   - Use prompts like:
+     - `mcp search <query>` to find SDK usage examples
+     - `mcp doc <endpoint>` to read endpoint docs
+     - `mcp test <api>` to scaffold integration tests
+
+### Tips
+- Keep the MCP server running in the background during development.
+- Use MCP to ensure you’re using the latest Neynar SDK features and best practices.
+
+- Add automated tests for each API route and key Farcaster workflows (e.g., Jest or React Testing Library).
+- Update documentation, code comments, and examples to reflect the new backend-driven architecture.
 
 ## Technical Details
 

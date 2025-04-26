@@ -107,12 +107,11 @@ class NeynarClient {
 
 // Create a function to get the client instance
 export function getNeynarClient() {
-  const apiKey = process.env.NEXT_PUBLIC_NEYNAR_API_KEY
-  console.log('API Key exists:', !!apiKey) // Log if API key exists (not the actual key)
+  const apiKey = process.env.NEYNAR_API_KEY
 
   if (!apiKey) {
-    console.error('NEXT_PUBLIC_NEYNAR_API_KEY is not set')
-    throw new Error('NEXT_PUBLIC_NEYNAR_API_KEY is not set')
+    console.error('NEYNAR_API_KEY is not set')
+    throw new Error('NEYNAR_API_KEY is not set')
   }
   return new NeynarClient(apiKey)
 }
