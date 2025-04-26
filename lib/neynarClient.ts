@@ -52,7 +52,6 @@ class NeynarClient {
   }
 
   async lookupCastByUrl(url: string): Promise<CastResponse> {
-    console.log('Attempting to fetch cast with URL:', url)
     const response = await fetch(
       `${this.apiUrl}/cast?type=url&identifier=${url}`,
       {
@@ -82,26 +81,39 @@ class NeynarClient {
   }
 
   async fetchThread(threadHash: string): Promise<ThreadResponse> {
-    const response = await fetch(
-      `https://api.neynar.com/v1/farcaster/all-casts-in-thread?threadHash=${threadHash}`,
-      {
-        headers: {
-          api_key: this.apiKey,
-          Accept: 'application/json',
-        },
+    const endpoint = `${this.apiUrl}/cast/conversation?identifier=${encodeURIComponent(threadHash)}&type=hash&reply_depth=2`
+    const response = await fetch(endpoint, {
+      headers: {
+        api_key: this.apiKey,
+        Accept: 'application/json',
       },
-    )
-
+    })
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('API Error fetching thread:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      })
       throw new Error(`Failed to fetch thread: ${response.statusText}`)
     }
-
     const data = await response.json()
-    return {
-      result: {
-        casts: data.result.casts as Cast[],
-      },
+    const conv = data.conversation?.cast
+    if (!conv) {
+      console.error('Invalid conversation response structure:', data)
+      throw new Error('Invalid conversation response structure')
     }
+    // Flatten root + all nested direct_replies to capture AMA user answers
+    const casts: Cast[] = []
+    const queue: any[] = [conv]
+    while (queue.length) {
+      const node = queue.shift()
+      casts.push(node as Cast)
+      if (node.direct_replies && Array.isArray(node.direct_replies)) {
+        queue.push(...node.direct_replies)
+      }
+    }
+    return { result: { casts } }
   }
 }
 

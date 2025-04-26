@@ -18,8 +18,6 @@ import { useAccount } from 'wagmi'
 const DEFAULT_AVATAR = '/default-avatar.png'
 
 const transformNeynarAuthor = (neynarAuthor: any): Author => {
-  console.log('Raw author data:', neynarAuthor)
-
   // Handle different avatar URL structures
   let avatarUrl = DEFAULT_AVATAR
   try {
@@ -75,10 +73,6 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Debug all search parameters
-        console.log('All search parameters:', searchParams)
-        console.log('Search params type:', typeof searchParams)
-
         // Try getting URL from different methods
         const rawUrl = searchParams['url']
         const urlFromSearchParams = new URLSearchParams(
@@ -99,8 +93,6 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
           return
         }
 
-        console.log('Using URL for fetch:', url)
-
         // Fetch main cast via backend API
         const mainRes = await fetch(`/api/fetchCast?url=${encodeURIComponent(url)}`)
         if (!mainRes.ok) throw new Error(`Failed to fetch cast: ${mainRes.statusText}`)
@@ -118,7 +110,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
         setGuestUser(fetchedGuestUser)
 
         // Fetch thread via backend API
-        const threadRes = await fetch(`/api/fetchThread?threadHash=${encodeURIComponent(fetchedMainCast.thread_hash)}`)
+        const threadRes = await fetch(`/api/fetchThread?castUrl=${encodeURIComponent(url)}`)
         if (!threadRes.ok) throw new Error(`Failed to fetch thread: ${threadRes.statusText}`)
         // Parse and type the raw casts from our backend for proper typing
         const threadJson = (await threadRes.json()) as { result: { casts: NeynarCast[] } }
@@ -142,7 +134,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
 
           if (isFromAMAUser) {
             thirdTierResponses.push(cast as AnswerEntry)
-          } else if (!cast.parent_hash) {
+          } else if (cast.parent_hash === fetchedMainCast.hash) {
             secondTierResponses.push(cast)
           }
         })
@@ -234,6 +226,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
                 src={amaUser.avatar_url}
                 alt={amaUser.display_name}
                 fill
+                sizes="64px"
                 className="guest-avatar rounded-full object-cover"
                 unoptimized={amaUser.avatar_url.startsWith('data:')}
               />
@@ -263,6 +256,7 @@ export default function AMAPage({ searchParams }: AMAPageProps) {
                 }
                 alt={mainCast.author.display_name}
                 fill
+                sizes="48px"
                 className="cast-avatar rounded-full object-cover"
                 unoptimized={(
                   mainCast.author.pfp_url ||
