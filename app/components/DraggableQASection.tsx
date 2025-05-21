@@ -88,6 +88,11 @@ export default function DraggableQASection({
   onOrderChange,
   neynarUser,
 }: DraggableQASectionProps) {
+  // Canonical (original) pairs
+  const [canonicalSecondTier, setCanonicalSecondTier] = useState<Cast[]>(secondTier);
+  const [canonicalThirdTier, setCanonicalThirdTier] = useState<AnswerEntry[]>(thirdTier);
+
+  // Local (possibly shuffled) pairs
   const [localSecondTier, setLocalSecondTier] = useState<Cast[]>(secondTier)
   const [localThirdTier, setLocalThirdTier] = useState<AnswerEntry[]>(thirdTier)
   const [isPairedMode, setIsPairedMode] = useState(window.innerWidth <= 768)
@@ -96,6 +101,34 @@ export default function DraggableQASection({
     type: 'question' | 'answer' | 'pair' | null
     index: number
   } | null>(null)
+
+  // Keep canonical arrays in sync with props
+  useEffect(() => {
+    setCanonicalSecondTier(secondTier);
+    setCanonicalThirdTier(thirdTier);
+  }, [secondTier, thirdTier]);
+
+  // Shuffle utility
+  function shuffle<T>(array: T[]): T[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Reset on mode switch
+  useEffect(() => {
+    if (isPairedMode) {
+      setLocalSecondTier(canonicalSecondTier);
+      setLocalThirdTier(canonicalThirdTier);
+    } else {
+      setLocalSecondTier(shuffle([...canonicalSecondTier]));
+      setLocalThirdTier(shuffle([...canonicalThirdTier]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPairedMode, canonicalSecondTier, canonicalThirdTier]);
 
   // Add state for managing current answer indices
   const [currentAnswerIndices, setCurrentAnswerIndices] = useState<{
@@ -1134,6 +1167,9 @@ export default function DraggableQASection({
       )}
     </div>
   )
+
+  // Only allow drag-and-drop in matching mode and if admin
+  // (moved to top-level, remove duplicate definition)
 
   // Function to render the matching mode content
   const renderMatchingMode = () => (

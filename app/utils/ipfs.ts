@@ -22,71 +22,10 @@ export interface IPFSMatchData {
   signature?: string
 }
 
-interface PinataMetadata {
-  name: string
-  keyvalues: {
-    [key: string]: string | number | boolean
-  }
-}
-
-interface PinataResponse {
-  IpfsHash: string
-  PinSize: number
-  Timestamp: string
-}
-
-interface PinataSearchResult {
-  rows: Array<{
-    ipfs_pin_hash: string
-    metadata: PinataMetadata
-  }>
-  count: number
-}
-
-const PINATA_API_URL = 'https://api.pinata.cloud'
-const PINATA_GATEWAY_URL =
-  process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud'
-
-// Add IPCM integration
-interface IPCMContract {
-  updateMapping(value: string): Promise<void>
-  getMapping(): Promise<string>
-}
-
-export async function updateIPCMMapping(
-  contract: IPCMContract,
-  contentHash: string,
-): Promise<void> {
-  try {
-    await contract.updateMapping(`ipfs://${contentHash}`)
-    console.log('Updated IPCM mapping to:', contentHash)
-  } catch (error) {
-    console.error('Error updating IPCM mapping:', error)
-    throw new Error('Failed to update IPCM mapping')
-  }
-}
-
-export async function getLatestIPFSHash(
-  contract: IPCMContract,
-): Promise<string> {
-  try {
-    const mapping = await contract.getMapping()
-    // Remove ipfs:// prefix if present
-    return mapping.replace('ipfs://', '')
-  } catch (error) {
-    console.error('Error getting latest IPFS hash:', error)
-    throw new Error('Failed to get latest IPFS hash')
-  }
-}
-
 /**
- * Internal function to handle the actual upload to IPFS
+ * Internal function to handle the actual upload to IPFS via backend API
  */
 async function uploadToIPFS(data: IPFSMatchData): Promise<string> {
-  if (!process.env.NEXT_PUBLIC_PINATA_JWT) {
-    throw new Error('Pinata JWT not configured')
-  }
-
   // Validate input data
   if (
     !data.amaId ||
@@ -99,8 +38,6 @@ async function uploadToIPFS(data: IPFSMatchData): Promise<string> {
 
   // Create form data
   const formData = new FormData()
-
-  // Prepare data for upload
   const uploadData = {
     ...data,
     matches: data.matches.map((match) => ({
@@ -133,7 +70,6 @@ async function uploadToIPFS(data: IPFSMatchData): Promise<string> {
   })
   formData.append('file', blob, 'matches.json')
 
-  // Add metadata for better discoverability
   const metadata = {
     name: `AMA_${data.amaId.slice(0, 8)}_matches`,
     keyvalues: {
@@ -143,57 +79,36 @@ async function uploadToIPFS(data: IPFSMatchData): Promise<string> {
       match_count: data.matches.length,
     },
   }
-
   formData.append('pinataMetadata', JSON.stringify(metadata))
 
   try {
-    // Upload to IPFS via Pinata
-    const response = await axios.post<PinataResponse>(
-      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        maxBodyLength: Infinity,
-      },
-    )
+    // Upload to IPFS via backend API
+    const response = await fetch('/api/pinata-upload', {
+      method: 'POST',
+      body: formData,
+    })
 
-    console.log('Pinata upload successful:', response.data)
-    return response.data.IpfsHash
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Pinata API Error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        headers: error.response?.headers,
-        request: {
-          method: error.config?.method,
-          url: error.config?.url,
-        },
-      })
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || 'Pinata upload failed')
     }
+
+    const result = await response.json()
+    return result.IpfsHash
+  } catch (error) {
+    console.error('Pinata API Error:', error)
     throw error
   }
 }
 
 /**
- * Upload match data to IPFS and optionally update IPCM contract
+ * Upload match data to IPFS
  */
 export async function uploadMatchesToIPFS(
   data: IPFSMatchData,
-  updateIPFSMapping?: (cid: string) => Promise<void>,
 ): Promise<string> {
   try {
     const contentHash = await uploadToIPFS(data)
-
-    // If IPCM update function is provided, update the mapping
-    if (updateIPFSMapping) {
-      await updateIPFSMapping(contentHash)
-    }
-
     return contentHash
   } catch (error) {
     console.error('Error in uploadMatchesToIPFS:', error)
@@ -202,108 +117,17 @@ export async function uploadMatchesToIPFS(
 }
 
 /**
- * Retrieve match data from IPFS
- * @param contentHash IPFS content hash (CID)
- * @returns Match data
- */
-export async function getMatchesFromIPFS(
-  contentHash: string,
-): Promise<IPFSMatchData> {
-  try {
-    const response = await axios.get<IPFSMatchData>(
-      `${PINATA_GATEWAY_URL}/ipfs/${contentHash}`,
-      {
-        headers: {
-          Accept: 'application/json',
-        },
-      },
-    )
-
-    if (!isValidIPFSMatchData(response.data)) {
-      throw new Error('Invalid match data format')
-    }
-
-    return response.data
-  } catch (error) {
-    console.error('Error fetching from IPFS:', error)
-    throw new Error('Failed to fetch from IPFS')
-  }
-}
-
-/**
- * Type guard to validate IPFSMatchData
- */
-function isValidIPFSMatchData(data: any): data is IPFSMatchData {
-  return (
-    typeof data === 'object' &&
-    typeof data.amaId === 'string' &&
-    Array.isArray(data.matches) &&
-    typeof data.metadata === 'object' &&
-    typeof data.metadata.timestamp === 'number' &&
-    typeof data.metadata.version === 'number' &&
-    typeof data.metadata.submitter === 'string' &&
-    typeof data.metadata.submitter_fid === 'string' &&
-    typeof data.metadata.ama_title === 'string' &&
-    typeof data.metadata.ama_host === 'string' &&
-    typeof data.merkle_root === 'string' &&
-    typeof data.signature === 'string' &&
-    data.matches.every(
-      (match: any) =>
-        typeof match.questionHash === 'string' &&
-        typeof match.answerHash === 'string' &&
-        typeof match.ranking === 'number' &&
-        typeof match.questionContent === 'object' &&
-        typeof match.questionContent.text === 'string' &&
-        typeof match.questionContent.cast_id === 'string' &&
-        typeof match.questionContent.timestamp === 'number' &&
-        typeof match.questionContent.author === 'object' &&
-        typeof match.questionContent.author.fid === 'number' &&
-        typeof match.questionContent.author.username === 'string' &&
-        typeof match.answerContent === 'object' &&
-        typeof match.answerContent.text === 'string' &&
-        typeof match.answerContent.cast_id === 'string' &&
-        typeof match.answerContent.timestamp === 'number' &&
-        typeof match.answerContent.author === 'object' &&
-        typeof match.answerContent.author.fid === 'number' &&
-        typeof match.answerContent.author.username === 'string' &&
-        typeof match.category === 'string' &&
-        typeof match.tags === 'object' &&
-        typeof match.quality_signals === 'object' &&
-        typeof match.quality_signals.relevance_score === 'number' &&
-        typeof match.quality_signals.engagement_score === 'number' &&
-        typeof match.quality_signals.curator_notes === 'string',
-    )
-  )
-}
-
-/**
- * List all versions of matches for a specific AMA
- * @param amaId AMA identifier
- * @returns Array of IPFS content hashes
+ * List all versions of matches for a specific AMA (via backend API)
  */
 export async function listMatchVersions(amaId: string): Promise<string[]> {
   try {
-    const response = await axios.get<PinataSearchResult>(
-      `${PINATA_API_URL}/data/pinList`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-        },
-        params: {
-          metadata: JSON.stringify({
-            keyvalues: {
-              amaId: {
-                value: amaId,
-                op: 'eq',
-              },
-            },
-          }),
-          status: 'pinned',
-        },
-      },
-    )
-
-    return response.data.rows.map((item) => item.ipfs_pin_hash)
+    const response = await fetch(`/api/pinata-list?amaId=${encodeURIComponent(amaId)}`)
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || 'Failed to list match versions')
+    }
+    const data = await response.json()
+    return data.rows.map((item: any) => item.ipfs_pin_hash)
   } catch (error) {
     console.error('Error listing match versions:', error)
     throw new Error('Failed to list match versions')
@@ -311,9 +135,7 @@ export async function listMatchVersions(amaId: string): Promise<string[]> {
 }
 
 /**
- * Unpin old versions of matches if needed
- * @param amaId AMA identifier
- * @param keepLatest Number of latest versions to keep
+ * Unpin old versions of matches if needed (via backend API)
  */
 export async function cleanupOldVersions(
   amaId: string,
@@ -321,18 +143,13 @@ export async function cleanupOldVersions(
 ): Promise<void> {
   try {
     const versions = await listMatchVersions(amaId)
-
     if (versions.length <= keepLatest) return
-
     const toRemove = versions.slice(keepLatest)
-
     await Promise.all(
       toRemove.map((hash) =>
-        axios.delete(`${PINATA_API_URL}/pinning/unpin/${hash}`, {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-          },
-        }),
+        fetch(`/api/pinata-unpin?hash=${encodeURIComponent(hash)}`, {
+          method: 'DELETE',
+        })
       ),
     )
   } catch (error) {
@@ -343,18 +160,28 @@ export async function cleanupOldVersions(
 
 /**
  * Check if an IPFS hash exists and is accessible
- * @param contentHash IPFS content hash to verify
- * @returns boolean indicating if content is accessible
  */
 export async function verifyIPFSContent(contentHash: string): Promise<boolean> {
   try {
-    const response = await axios.head(
-      `${PINATA_GATEWAY_URL}/ipfs/${contentHash}`,
-    )
-    return response.status === 200
+    const response = await fetch(`/api/ipfs-verify/${contentHash}`)
+    if (!response.ok) return false
+    const result = await response.json()
+    return result.exists === true
   } catch {
     return false
   }
+}
+
+/**
+ * Retrieve match data from IPFS via backend API
+ */
+/**
+ * Fetches match data from IPFS given a content hash (CID).
+ * Returns the data as IPFSMatchData.
+ */
+export async function getMatchesFromIPFS(contentHash: string): Promise<IPFSMatchData> {
+  const data = await fetchFromIPFS(contentHash);
+  return data as IPFSMatchData;
 }
 
 export async function fetchFromIPFS(contentHash: string) {
@@ -368,44 +195,5 @@ export async function fetchFromIPFS(contentHash: string) {
   } catch (error) {
     console.error('Error fetching from IPFS:', error)
     throw error
-  }
-}
-
-async function testPinataConnection(): Promise<boolean> {
-  try {
-    const testData = {
-      test: 'Hello World',
-      timestamp: Date.now(),
-    }
-    const formData = new FormData()
-    const blob = new Blob([JSON.stringify(testData)], {
-      type: 'application/json',
-    })
-    formData.append('file', blob, 'test.json')
-
-    const metadata = {
-      name: 'test_upload',
-      keyvalues: {
-        test: true,
-      },
-    }
-    formData.append('pinataMetadata', JSON.stringify(metadata))
-
-    const response = await axios.post<PinataResponse>(
-      `${PINATA_API_URL}/pinning/pinFileToIPFS`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_PINATA_JWT}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      },
-    )
-
-    console.log('Test upload successful:', response.data)
-    return true
-  } catch (error) {
-    console.error('Test upload failed:', error)
-    return false
   }
 }

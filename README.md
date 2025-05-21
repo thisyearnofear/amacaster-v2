@@ -69,6 +69,26 @@ A decentralized AMA (Ask Me Anything) platform built on Optimism, integrating Fa
    - Web3.bio integration for profile data
    - IPFS content history viewer
 
+## Project Structure
+
+This project consists of three main components:
+
+1. **Web Application (`/amacaster/`)**
+   - Main web interface for the AMA platform
+   - Built with Next.js, TypeScript, and Tailwind
+   - Handles user interactions and AMA management
+
+2. **Farcaster Frame (`/amacast/`)**
+   - Farcaster Frame implementation
+   - Uses Farcaster Frame SDK for frame-specific features
+   - Provides embedded AMA experience within Farcaster
+
+3. **Core App (`/app/`)**
+   - Shared business logic and hooks
+   - Smart contract interactions
+   - IPFS content management
+   - Data models and utilities
+
 ## Contract Addresses (Optimism Sepolia)
 
 - AMAFeatured: `0xA78d4FcDaee13A11c11AEaD7f3a68CD15E8CB722`
@@ -106,15 +126,26 @@ NEYNAR_API_KEY=your_neynar_key
 - `NEXT_PUBLIC_NEYNAR_CLIENT_ID` is safe for the client and used for OAuth flows.
 
 
-### Installation
+### Installation and Development
+
+This is the main web application for the AMA platform.
+
+### Installation and Development
 
 ```bash
-# Install dependencies
-yarn install
+# From the root directory
+npm install
 
-# Run development server
-yarn dev
+# Run development server (default: http://localhost:3000)
+npm run dev
 ```
+
+### Note on Farcaster Frame Implementation
+The Farcaster Frame implementation is maintained in a separate repository. For frame development and testing, please refer to the frame-specific repository and documentation.
+
+#### Environment Setup
+- Make sure to set up the appropriate environment variables in `.env.local`
+- The web application requires Neynar API keys for Farcaster integration
 
 ### Smart Contract Deployment
 

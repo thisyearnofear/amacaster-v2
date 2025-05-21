@@ -39,24 +39,23 @@ export default async function AMA({
     userUsername: string
   }[] = []
 
-  casts.map((cast: any) => {
-    if (cast.parentHash === mainCast.hash) {
-      // Find answer
-      const replies = casts.filter((obj: any) =>
-        obj.parentHash === cast.hash && obj.author.username === amaUser?.username
-      )
-      const reply = replies[0]
+  // 1. Get all questions (direct replies to main cast), sorted by timestamp
+  const questionCasts = casts
+    .filter((cast: any) => cast.parentHash === mainCast.hash)
+    .sort((a: any, b: any) => a.timestamp - b.timestamp)
 
-      // Only include items with answers from the AMA user
-      if (reply) {
-        items.push({
-          hash: cast.hash,
-          question: cast.text,
-          answer: reply.text,
-          userAvatar: cast.author.pfp?.url || '',
-          userUsername: cast.author.username,
-        })
-      }
+  items = questionCasts.map((cast: any) => {
+    // 2. For each question, get all answers from the AMA user, sorted by timestamp
+    const replies = casts
+      .filter((obj: any) => obj.parentHash === cast.hash && obj.author.username === amaUser?.username)
+      .sort((a: any, b: any) => a.timestamp - b.timestamp)
+
+    return {
+      hash: cast.hash,
+      question: cast.text,
+      answers: replies, // all answer casts, possibly empty
+      userAvatar: cast.author.pfp?.url || '',
+      userUsername: cast.author.username,
     }
   })
 

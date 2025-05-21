@@ -44,3 +44,7 @@ hardhat.config.ts
 
 # ignore alternate yarn lockfile
 yarn 2.lock
+
+# frame implementations (kept as separate repositories)
+/amacaster
+/amacast

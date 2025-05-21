@@ -60,7 +60,7 @@ export interface MatchSubmission {
 
 export interface QAItemProps {
   question: Cast
-  answer?: Cast
+  answers: Cast[]
   thirdTierResponses?: Cast[]
   amaUser: Author
   userAvatar: string

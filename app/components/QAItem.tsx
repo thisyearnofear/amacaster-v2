@@ -10,7 +10,7 @@ import { Card } from './common/Card'
 const QAItem = memo(
   ({
     question,
-    answer,
+    answers = [],
     thirdTierResponses = [],
     amaUser,
     userAvatar,
@@ -70,9 +70,9 @@ const QAItem = memo(
           </div>
         </div>
 
-        {/* Answer - Right side */}
-        {answer && (
-          <div className="flex items-start gap-3 max-w-[80%] ml-auto">
+        {/* Answers - Right side (multi-part support) */}
+        {answers && answers.length > 0 && answers.map((answer) => (
+          <div key={answer.hash} className="flex items-start gap-3 max-w-[80%] ml-auto">
             <div className="flex-1">
               <div className="message-bubble message-bubble-right">
                 <div className="message-metadata mb-2 justify-end">
@@ -117,7 +117,7 @@ const QAItem = memo(
               />
             </div>
           </div>
-        )}
+        ))}
 
         {/* Third Tier Responses */}
         {thirdTierResponses.length > 0 && (

@@ -50,7 +50,7 @@ export function useCachedFetch<T>(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, url, ttl])
+  }, [cacheKey, url, ttl, options])
 
   return { data, loading, error }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { uploadMatchesToIPFS } from '../utils/ipfs'
 import { useIPCM } from './useIPCM'
 import { useAccount } from 'wagmi'
@@ -18,6 +18,10 @@ interface SubmissionState {
   }
 }
 
+function getDraftKey(amaId: string, address?: string) {
+  return `ama_draft_${amaId}_${address || 'anon'}`
+}
+
 export function useMatchSubmission(amaId: string) {
   const { address } = useAccount()
   const [state, setState] = useState<SubmissionState>({
@@ -28,6 +32,24 @@ export function useMatchSubmission(amaId: string) {
   const [error, setError] = useState<Error | null>(null)
   const [currentSubmission, setCurrentSubmission] = useState<Match[]>([])
   const { updateIPFSMapping, isUpdating } = useIPCM()
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    if (!amaId || !address) return
+    const key = getDraftKey(amaId, address)
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setCurrentSubmission(parsed)
+          setState((prev) => ({ ...prev, isDraft: true, isSubmitted: false }))
+        }
+      } catch (e) {
+        localStorage.removeItem(key)
+      }
+    }
+  }, [amaId, address])
 
   const submit = useCallback(
     async (matches: Match[]) => {
@@ -42,8 +64,7 @@ export function useMatchSubmission(amaId: string) {
         }))
 
         // Upload to IPFS and update IPCM mapping
-        const contentHash = await uploadMatchesToIPFS(
-          {
+        const contentHash = await uploadMatchesToIPFS({
             amaId,
             matches,
             metadata: {
@@ -59,9 +80,10 @@ export function useMatchSubmission(amaId: string) {
                 curation_guidelines: 'Select high-quality, relevant Q&As',
               },
             },
-          },
-          updateIPFSMapping,
-        )
+          })
+
+        // Update IPFS mapping after successful upload
+        await updateIPFSMapping(contentHash)
 
         setState((prev) => ({
           isDraft: false,
@@ -74,6 +96,9 @@ export function useMatchSubmission(amaId: string) {
         }))
 
         setCurrentSubmission(matches)
+        // Clear draft from localStorage on successful submit
+        const key = getDraftKey(amaId, address)
+        localStorage.removeItem(key)
         return contentHash
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error')
@@ -95,11 +120,15 @@ export function useMatchSubmission(amaId: string) {
         isDraft: true,
         isSubmitted: false,
       }))
-      // Could add local storage persistence here if needed
+      // Save draft to localStorage
+      if (amaId && address) {
+        const key = getDraftKey(amaId, address)
+        localStorage.setItem(key, JSON.stringify(matches))
+      }
     } catch (error) {
       console.error('Error saving draft:', error)
     }
-  }, [])
+  }, [amaId, address])
 
   const deleteDraft = useCallback(() => {
     setCurrentSubmission([])
@@ -107,7 +136,12 @@ export function useMatchSubmission(amaId: string) {
       isDraft: true,
       isSubmitted: false,
     })
-  }, [])
+    // Remove draft from localStorage
+    if (amaId && address) {
+      const key = getDraftKey(amaId, address)
+      localStorage.removeItem(key)
+    }
+  }, [amaId, address])
 
   return {
     submit,

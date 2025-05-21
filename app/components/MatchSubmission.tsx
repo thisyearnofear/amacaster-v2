@@ -28,8 +28,7 @@ export function MatchSubmission({
     try {
       // Upload to IPFS and update IPCM mapping
       const contentHash = await uploadMatchesToIPFS(
-        matchData,
-        updateIPFSMapping,
+        matchData
       )
       console.log('Successfully uploaded and mapped:', contentHash)
       onSuccess?.()
